@@ -1,84 +1,87 @@
-# Pokémon TCG - Digital Implementation
+# Pokémon TCG Backend - Foco en Microservicios, REST, WebSocket y Cartas
 
-> Implementación digital del Pokémon Trading Card Game (TCG) como Trabajo Práctico Integrador de Programación III - UTN FRC
+Este repo contiene una base de backend para Pokémon TCG orientada a separar responsabilidades por dominios de negocio y habilitar despliegue por servicios.
 
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4+-green.svg)](https://spring.io/projects/spring-boot)
-[![Angular](https://img.shields.io/badge/Angular-21+-red.svg)](https://angular.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
-[![Redis](https://img.shields.io/badge/Redis-7+-red.svg)](https://redis.io/)
-[![License](https://img.shields.io/badge/License-Academic-success.svg)]()
+## Arquitectura objetivo de microservicios
 
-## 📋 Tabla de Contenidos
+- **game-service**: creación/gestión de partidas, turnos y estado del juego.
+- **realtime-gateway**: WebSocket STOMP para acciones en tiempo real y broadcast de estado.
+- **card-service**: integración con `pokemontcg.io` + caché Redis.
 
-- [Descripción](#-descripción)
-- [Características](#-características)
-- [Arquitectura](#-arquitectura)
-- [Tecnologías](#-tecnologías)
-- [Requisitos Previos](#-requisitos-previos)
-- [Instalación](#-instalación)
-- [Configuración](#-configuración)
-- [Ejecución](#-ejecución)
-- [Testing](#-testing)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [API Documentation](#-api-documentation)
-- [Roadmap](#-roadmap)
-- [Equipo](#-equipo)
-- [Licencia](#-licencia)
+> Actualmente el código está en un único artefacto Spring Boot, pero ya está separado por capas y responsabilidades para moverlo a servicios independientes sin reescribir lógica core.
 
-## 📖 Descripción
+## Stack
 
-Versión digital completamente funcional del Pokémon TCG que permite a dos jugadores competir en tiempo real siguiendo las reglas oficiales del reglamento XY1. El proyecto implementa un motor de juego completo con todas las mecánicas del juego original, incluyendo sistema de turnos, resolución de ataques, condiciones especiales y múltiples condiciones de victoria.
+- Java 21
+- Spring Boot 3.4.x
+- Spring Web + WebSocket (STOMP)
+- Spring Data Redis
+- Spring Data JPA
+- PostgreSQL + Redis
 
-### Objetivos del Proyecto
+## API REST disponible
 
-- ✅ Implementar todas las reglas oficiales del Pokémon TCG (basadas en XY1 Rulebook)
-- ✅ Comunicación en tiempo real mediante WebSockets
-- ✅ Arquitectura cliente-servidor robusta y escalable
-- ✅ Aplicación de patrones de diseño y principios SOLID
-- ✅ Cobertura de tests > 80% (>90% en componentes críticos)
-- ✅ Integración con API pública pokemontcg.io
+### Game API
 
-## ✨ Características
+- `POST /api/games` crea partida
+- `POST /api/games/{gameId}/join` unirse a partida
+- `GET /api/games/{gameId}` obtener estado actual
+- `POST /api/games/{gameId}/attack` resolver ataque (fase ATTACK)
 
-### Funcionalidades Core
+### Deck API
 
-#### 🎴 Deck Builder
-- Construcción y validación de mazos según reglas oficiales
-- Exactamente 60 cartas por mazo
-- Máximo 4 copias por carta (excepto Energía Básica)
-- Máximo 1 AS TÁCTICO por mazo
-- Mínimo 1 Pokémon Básico
-- Integración con set XY (xy1 - 146 cartas)
+- `POST /api/decks/validate` valida reglas base del mazo
 
-#### 🎮 Motor de Juego Completo
-- Preparación de partida con sistema de Mulligan
-- Gestión de turnos con fases: DRAW → MAIN → ATTACK → BETWEEN_TURNS
-- Resolución de ataques con pipeline de 7 pasos
-- Sistema de knockout y toma de cartas de Premio
-- 5 condiciones especiales: Dormido, Quemado, Confundido, Paralizado, Envenenado
-- Múltiples condiciones de victoria
+### Card API (pokemontcg.io)
 
-#### 🔄 Tiempo Real
-- Sincronización de estado vía WebSockets
-- Notificaciones de eventos en tiempo real
-- Reconexión automática tras desconexión
+- `GET /api/cards?q=set.id:xy1&pageSize=20` búsqueda de cartas
+- `GET /api/cards/{cardId}` detalle por id
 
-#### 🖥️ Interfaz Interactiva
-- Tablero visual con zonas de juego claramente definidas
-- Sistema drag & drop para acciones de juego
-- Feedback visual inmediato
-- Log de acciones en tiempo real
+## WebSocket STOMP
 
-### Características Técnicas
+### Endpoints
 
-- 🏗️ **Arquitectura en Capas** (Presentation → Application → Domain → Infrastructure)
-- 🎯 **Patrones de Diseño**: State, Strategy, Chain of Responsibility, Observer, Repository, Facade
-- 💾 **Persistencia Dual**: PostgreSQL (estado persistente) + Redis (caché + sesiones)
-- 🔒 **Validación Backend**: Toda lógica de juego validada en servidor
-- 📊 **Trazabilidad**: Log completo e inmutable de todas las acciones
-- 🧪 **Alta Cobertura de Tests**: JUnit, Mockito, tests E2E
+- Handshake: `/ws`
+- Envío cliente: `/app/games/{gameId}/action`
+- Broadcast servidor: `/topic/games/{gameId}/state`
 
-## 🏛️ Arquitectura
+### Acciones soportadas
 
-### Diagrama de Arquitectura General
+Payload de ejemplo:
+
+```json
+{
+  "playerId": "4b08f8bf-2f18-44f1-b5cb-5faf4e4452d1",
+  "type": "END_MAIN"
+}
+```
+
+`type` puede ser:
+
+- `END_MAIN`
+- `ATTACK`
+- `NEXT_TURN`
+
+## Card caching (Redis)
+
+Se cachea por 7 días:
+
+- búsquedas: `cards:search:{query}:{pageSize}`
+- detalle: `cards:id:{cardId}`
+
+## Correr local
+
+```bash
+docker compose up -d
+mvn spring-boot:run
+```
+
+Variables:
+
+- `DB_URL`, `DB_USER`, `DB_PASSWORD`
+- `REDIS_HOST`, `REDIS_PORT`
+- `POKEMON_TCG_API_KEY`
+
+## Próximo paso sugerido
+
+Extraer `game-service` y `card-service` como módulos Maven independientes (o repos separados), dejando este repo como integración local y contrato API compartido.
