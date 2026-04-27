@@ -1,0 +1,36 @@
+package com.utn.pokemontcg.game.domain.model;
+
+import java.time.Instant;
+import java.util.UUID;
+
+public class GameAggregate {
+    private final UUID id;
+    private UUID playerOne;
+    private UUID playerTwo;
+    private UUID currentTurnPlayer;
+    private GameState gameState;
+    private TurnPhase turnPhase;
+    private Instant updatedAt;
+
+    public GameAggregate(UUID playerOne) {
+        this.id = UUID.randomUUID();
+        this.playerOne = playerOne;
+        this.gameState = GameState.WAITING;
+        this.turnPhase = TurnPhase.DRAW;
+        this.updatedAt = Instant.now();
+    }
+
+    public UUID id() { return id; }
+    public UUID playerOne() { return playerOne; }
+    public UUID playerTwo() { return playerTwo; }
+    public void setPlayerTwo(UUID playerTwo) { this.playerTwo = playerTwo; touch(); }
+    public UUID currentTurnPlayer() { return currentTurnPlayer; }
+    public void setCurrentTurnPlayer(UUID currentTurnPlayer) { this.currentTurnPlayer = currentTurnPlayer; touch(); }
+    public GameState gameState() { return gameState; }
+    public void setGameState(GameState gameState) { this.gameState = gameState; touch(); }
+    public TurnPhase turnPhase() { return turnPhase; }
+    public void setTurnPhase(TurnPhase turnPhase) { this.turnPhase = turnPhase; touch(); }
+    public Instant updatedAt() { return updatedAt; }
+
+    private void touch() { this.updatedAt = Instant.now(); }
+}

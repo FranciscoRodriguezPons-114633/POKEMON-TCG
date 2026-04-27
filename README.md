@@ -1,87 +1,95 @@
-# Pokémon TCG Backend - Foco en Microservicios, REST, WebSocket y Cartas
+# Pokémon TCG Backend - Multi-módulo Maven (3 servicios)
 
-Este repo contiene una base de backend para Pokémon TCG orientada a separar responsabilidades por dominios de negocio y habilitar despliegue por servicios.
+Este repositorio ahora está organizado como **multi-módulo Maven** con 3 servicios independientes:
 
-## Arquitectura objetivo de microservicios
+- `game-service` (puerto 8081)
+- `realtime-service` (puerto 8082)
+- `card-service` (puerto 8083)
 
-- **game-service**: creación/gestión de partidas, turnos y estado del juego.
-- **realtime-gateway**: WebSocket STOMP para acciones en tiempo real y broadcast de estado.
-- **card-service**: integración con `pokemontcg.io` + caché Redis.
+## Estructura
 
-> Actualmente el código está en un único artefacto Spring Boot, pero ya está separado por capas y responsabilidades para moverlo a servicios independientes sin reescribir lógica core.
-
-## Stack
-
-- Java 21
-- Spring Boot 3.4.x
-- Spring Web + WebSocket (STOMP)
-- Spring Data Redis
-- Spring Data JPA
-- PostgreSQL + Redis
-
-## API REST disponible
-
-### Game API
-
-- `POST /api/games` crea partida
-- `POST /api/games/{gameId}/join` unirse a partida
-- `GET /api/games/{gameId}` obtener estado actual
-- `POST /api/games/{gameId}/attack` resolver ataque (fase ATTACK)
-
-### Deck API
-
-- `POST /api/decks/validate` valida reglas base del mazo
-
-### Card API (pokemontcg.io)
-
-- `GET /api/cards?q=set.id:xy1&pageSize=20` búsqueda de cartas
-- `GET /api/cards/{cardId}` detalle por id
-
-## WebSocket STOMP
-
-### Endpoints
-
-- Handshake: `/ws`
-- Envío cliente: `/app/games/{gameId}/action`
-- Broadcast servidor: `/topic/games/{gameId}/state`
-
-### Acciones soportadas
-
-Payload de ejemplo:
-
-```json
-{
-  "playerId": "4b08f8bf-2f18-44f1-b5cb-5faf4e4452d1",
-  "type": "END_MAIN"
-}
+```text
+pokemon-tcg-platform/
+├── pom.xml (parent)
+├── game-service/
+├── realtime-service/
+└── card-service/
 ```
 
-`type` puede ser:
+## Migraciones realizadas
 
-- `END_MAIN`
-- `ATTACK`
-- `NEXT_TURN`
+### 1) Card API a `card-service`
 
-## Card caching (Redis)
+Se migraron responsabilidades de cartas a un servicio dedicado:
 
-Se cachea por 7 días:
+- `CardController`
+- `CardApiService`
+- `PokemonTcgClient`
+- Redis cache (TTL 7 días)
 
-- búsquedas: `cards:search:{query}:{pageSize}`
-- detalle: `cards:id:{cardId}`
+### 2) WebSocket a `realtime-service`
 
-## Correr local
+Se migró la capa WebSocket STOMP:
+
+- endpoint `/ws`
+- broker `/topic`
+- endpoint interno `/internal/events` para recibir eventos del `game-service`
+
+### 3) `game-service` con patrones de diseño requeridos
+
+- **State**
+  - Estados de partida: `WAITING`, `SETUP`, `ACTIVE`, `FINISHED`
+  - Estados de turno: `DRAW`, `MAIN`, `ATTACK`, `BETWEEN_TURNS`
+- **Strategy**
+  - `TrainerEffectStrategy`
+  - `AttackEffectStrategy`
+- **Chain of Responsibility**
+  - `AttackResolutionPipeline` con 7 pasos:
+    1. `EnergyValidationStep`
+    2. `ConfusionCheckStep`
+    3. `SelectionStep`
+    4. `PreAttackStep`
+    5. `ModifierStep`
+    6. `DamageCalculationStep`
+    7. `PostDamageEffectsStep`
+- **Observer**
+  - `GameEventPublisher` + `GameEventObserver`
+  - `HttpRealtimeObserver` notifica al `realtime-service`
+- **Repository**
+  - Interfaces: `GameStateRepository`, `DeckRepository`, `CardRepository`
+  - Implementación inicial: `InMemoryGameStateRepository`
+- **Facade**
+  - `GameEngineFacade` como API interna del motor
+
+## Endpoints
+
+### game-service
+
+- `POST /api/games`
+- `POST /api/games/{gameId}/join`
+- `POST /api/games/{gameId}/actions`
+- `GET /api/games/{gameId}`
+
+### card-service
+
+- `GET /api/cards?q=set.id:xy1&pageSize=20`
+- `GET /api/cards/{id}`
+
+### realtime-service
+
+- `POST /internal/events` (uso interno entre servicios)
+- WebSocket STOMP `/ws` + `/topic/games/{gameId}/events`
+
+## Build
+
+```bash
+mvn -pl game-service,card-service,realtime-service clean package
+```
+
+## Run local
 
 ```bash
 docker compose up -d
-mvn spring-boot:run
 ```
 
-Variables:
-
-- `DB_URL`, `DB_USER`, `DB_PASSWORD`
-- `REDIS_HOST`, `REDIS_PORT`
-- `POKEMON_TCG_API_KEY`
-
-## Próximo paso sugerido
-
-Extraer `game-service` y `card-service` como módulos Maven independientes (o repos separados), dejando este repo como integración local y contrato API compartido.
+> Nota: los Dockerfiles esperan jars construidos en `*/target/`.
