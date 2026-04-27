@@ -1,84 +1,71 @@
-# Pokémon TCG - Digital Implementation
+# Pokémon TCG Backend (Spring Boot)
 
-> Implementación digital del Pokémon Trading Card Game (TCG) como Trabajo Práctico Integrador de Programación III - UTN FRC
+Backend base para una implementación digital de Pokémon TCG con arquitectura en capas:
 
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4+-green.svg)](https://spring.io/projects/spring-boot)
-[![Angular](https://img.shields.io/badge/Angular-21+-red.svg)](https://angular.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
-[![Redis](https://img.shields.io/badge/Redis-7+-red.svg)](https://redis.io/)
-[![License](https://img.shields.io/badge/License-Academic-success.svg)]()
+- **Presentation**: REST + WebSocket (STOMP).
+- **Application**: servicios de orquestación (`GameService`, `DeckService`).
+- **Domain**: entidades y motor (`GameEngineFacade`, validadores de reglas).
+- **Infrastructure**: cliente `pokemontcg.io`, JPA, Redis.
 
-## 📋 Tabla de Contenidos
+## Stack
 
-- [Descripción](#-descripción)
-- [Características](#-características)
-- [Arquitectura](#-arquitectura)
-- [Tecnologías](#-tecnologías)
-- [Requisitos Previos](#-requisitos-previos)
-- [Instalación](#-instalación)
-- [Configuración](#-configuración)
-- [Ejecución](#-ejecución)
-- [Testing](#-testing)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [API Documentation](#-api-documentation)
-- [Roadmap](#-roadmap)
-- [Equipo](#-equipo)
-- [Licencia](#-licencia)
+- Java 21
+- Spring Boot 3.4.x
+- PostgreSQL
+- Redis
+- Maven
 
-## 📖 Descripción
+## Estructura principal
 
-Versión digital completamente funcional del Pokémon TCG que permite a dos jugadores competir en tiempo real siguiendo las reglas oficiales del reglamento XY1. El proyecto implementa un motor de juego completo con todas las mecánicas del juego original, incluyendo sistema de turnos, resolución de ataques, condiciones especiales y múltiples condiciones de victoria.
+```text
+src/main/java/com/utn/pokemontcg
+├── config
+├── presentation/controller
+├── presentation/dto
+├── application/service
+├── domain/model
+├── domain/engine
+├── domain/validator
+└── infrastructure
+    ├── external/pokemontcg
+    └── persistence
+```
 
-### Objetivos del Proyecto
+## Endpoints base
 
-- ✅ Implementar todas las reglas oficiales del Pokémon TCG (basadas en XY1 Rulebook)
-- ✅ Comunicación en tiempo real mediante WebSockets
-- ✅ Arquitectura cliente-servidor robusta y escalable
-- ✅ Aplicación de patrones de diseño y principios SOLID
-- ✅ Cobertura de tests > 80% (>90% en componentes críticos)
-- ✅ Integración con API pública pokemontcg.io
+- `POST /api/games` crear partida
+- `POST /api/games/{gameId}/join` unirse a partida
+- `GET /api/games/{gameId}` estado de partida
+- `POST /api/games/{gameId}/attack` transición de ataque (placeholder)
+- `POST /api/decks/validate` validación de mazo (60 cartas, límite de copias)
+- `GET /api/cards?q=set.id:xy1&pageSize=20` búsqueda contra `pokemontcg.io`
 
-## ✨ Características
+## Correr local
 
-### Funcionalidades Core
+```bash
+docker compose up -d
+mvn spring-boot:run
+```
 
-#### 🎴 Deck Builder
-- Construcción y validación de mazos según reglas oficiales
-- Exactamente 60 cartas por mazo
-- Máximo 4 copias por carta (excepto Energía Básica)
-- Máximo 1 AS TÁCTICO por mazo
-- Mínimo 1 Pokémon Básico
-- Integración con set XY (xy1 - 146 cartas)
+Variables útiles:
 
-#### 🎮 Motor de Juego Completo
-- Preparación de partida con sistema de Mulligan
-- Gestión de turnos con fases: DRAW → MAIN → ATTACK → BETWEEN_TURNS
-- Resolución de ataques con pipeline de 7 pasos
-- Sistema de knockout y toma de cartas de Premio
-- 5 condiciones especiales: Dormido, Quemado, Confundido, Paralizado, Envenenado
-- Múltiples condiciones de victoria
+- `DB_URL`, `DB_USER`, `DB_PASSWORD`
+- `REDIS_HOST`, `REDIS_PORT`
+- `POKEMON_TCG_API_KEY`
 
-#### 🔄 Tiempo Real
-- Sincronización de estado vía WebSockets
-- Notificaciones de eventos en tiempo real
-- Reconexión automática tras desconexión
+## Tests
 
-#### 🖥️ Interfaz Interactiva
-- Tablero visual con zonas de juego claramente definidas
-- Sistema drag & drop para acciones de juego
-- Feedback visual inmediato
-- Log de acciones en tiempo real
+```bash
+mvn test
+```
 
-### Características Técnicas
+## Estado del proyecto
 
-- 🏗️ **Arquitectura en Capas** (Presentation → Application → Domain → Infrastructure)
-- 🎯 **Patrones de Diseño**: State, Strategy, Chain of Responsibility, Observer, Repository, Facade
-- 💾 **Persistencia Dual**: PostgreSQL (estado persistente) + Redis (caché + sesiones)
-- 🔒 **Validación Backend**: Toda lógica de juego validada en servidor
-- 📊 **Trazabilidad**: Log completo e inmutable de todas las acciones
-- 🧪 **Alta Cobertura de Tests**: JUnit, Mockito, tests E2E
+Este commit deja una **base funcional y compilable** para continuar con:
 
-## 🏛️ Arquitectura
-
-### Diagrama de Arquitectura General
+- pipeline completo de ataques,
+- estados avanzados de juego,
+- persistencia completa del estado,
+- autenticación JWT,
+- sincronización de eventos por WebSocket por sala/partida,
+- integración frontend Angular.
