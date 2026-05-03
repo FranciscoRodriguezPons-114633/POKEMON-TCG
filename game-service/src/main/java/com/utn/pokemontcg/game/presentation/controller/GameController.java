@@ -5,10 +5,12 @@ import com.utn.pokemontcg.game.domain.model.GameAggregate;
 import com.utn.pokemontcg.game.presentation.dto.CreateGameRequest;
 import com.utn.pokemontcg.game.presentation.dto.GameActionRequest;
 import com.utn.pokemontcg.game.presentation.dto.JoinGameRequest;
+import com.utn.pokemontcg.game.presentation.dto.SetupGameRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,26 +26,43 @@ public class GameController {
 
     @PostMapping
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody CreateGameRequest request) {
-        GameAggregate game = gameService.create(request.playerId());
-        return ResponseEntity.ok(Map.of("gameId", game.id(), "state", game.gameState().name(), "phase", game.turnPhase().name()));
+        return ResponseEntity.ok(toResponse(gameService.create(request.playerId())));
     }
 
     @PostMapping("/{gameId}/join")
     public ResponseEntity<Map<String, Object>> join(@PathVariable UUID gameId, @Valid @RequestBody JoinGameRequest request) {
-        GameAggregate game = gameService.join(gameId, request.playerId());
-        return ResponseEntity.ok(Map.of("gameId", game.id(), "state", game.gameState().name(), "phase", game.turnPhase().name()));
+        return ResponseEntity.ok(toResponse(gameService.join(gameId, request.playerId())));
+    }
+
+    @PostMapping("/{gameId}/setup")
+    public ResponseEntity<Map<String, Object>> setup(@PathVariable UUID gameId, @Valid @RequestBody SetupGameRequest request) {
+        GameAggregate game = gameService.runInitialSetup(
+            gameId,
+            request.playerOneDeckSize(), request.playerOneBasicCount(),
+            request.playerTwoDeckSize(), request.playerTwoBasicCount()
+        );
+        return ResponseEntity.ok(toResponse(game));
     }
 
     @PostMapping("/{gameId}/actions")
     public ResponseEntity<Map<String, Object>> action(@PathVariable UUID gameId,
                                                        @Valid @RequestBody GameActionRequest request) {
-        GameAggregate game = gameService.executeAction(gameId, request.actionType());
-        return ResponseEntity.ok(Map.of("gameId", game.id(), "state", game.gameState().name(), "phase", game.turnPhase().name()));
+        return ResponseEntity.ok(toResponse(gameService.executeAction(gameId, request.actionType())));
     }
 
     @GetMapping("/{gameId}")
     public ResponseEntity<Map<String, Object>> state(@PathVariable UUID gameId) {
-        GameAggregate game = gameService.get(gameId);
-        return ResponseEntity.ok(Map.of("gameId", game.id(), "state", game.gameState().name(), "phase", game.turnPhase().name()));
+        return ResponseEntity.ok(toResponse(gameService.get(gameId)));
+    }
+
+    private Map<String, Object> toResponse(GameAggregate game) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("gameId", game.id());
+        response.put("state", game.gameState().name());
+        response.put("phase", game.turnPhase().name());
+        response.put("currentTurnPlayer", game.currentTurnPlayer());
+        response.put("firstPlayer", game.firstPlayer());
+        response.put("setupByPlayer", game.setupByPlayer());
+        return response;
     }
 }

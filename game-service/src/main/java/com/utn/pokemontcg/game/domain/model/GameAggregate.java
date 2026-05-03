@@ -1,6 +1,8 @@
 package com.utn.pokemontcg.game.domain.model;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class GameAggregate {
@@ -11,6 +13,8 @@ public class GameAggregate {
     private GameState gameState;
     private TurnPhase turnPhase;
     private Instant updatedAt;
+    private final Map<UUID, PlayerSetupState> setupByPlayer = new HashMap<>();
+    private UUID firstPlayer;
 
     public GameAggregate(UUID playerOne) {
         this.id = UUID.randomUUID();
@@ -31,6 +35,9 @@ public class GameAggregate {
     public TurnPhase turnPhase() { return turnPhase; }
     public void setTurnPhase(TurnPhase turnPhase) { this.turnPhase = turnPhase; touch(); }
     public Instant updatedAt() { return updatedAt; }
+    public Map<UUID, PlayerSetupState> setupByPlayer() { return setupByPlayer; }
+    public UUID firstPlayer() { return firstPlayer; }
+    public void setFirstPlayer(UUID firstPlayer) { this.firstPlayer = firstPlayer; touch(); }
 
     private void touch() { this.updatedAt = Instant.now(); }
 }

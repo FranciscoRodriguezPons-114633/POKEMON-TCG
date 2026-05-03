@@ -13,10 +13,12 @@ public class GameApplicationService {
 
     private final GameStateRepository gameStateRepository;
     private final GameEngineFacade gameEngineFacade;
+    private final SetupEngineService setupEngineService;
 
-    public GameApplicationService(GameStateRepository gameStateRepository, GameEngineFacade gameEngineFacade) {
+    public GameApplicationService(GameStateRepository gameStateRepository, GameEngineFacade gameEngineFacade, SetupEngineService setupEngineService) {
         this.gameStateRepository = gameStateRepository;
         this.gameEngineFacade = gameEngineFacade;
+        this.setupEngineService = setupEngineService;
     }
 
     public GameAggregate create(UUID playerId) {
@@ -28,9 +30,29 @@ public class GameApplicationService {
     public GameAggregate join(UUID gameId, UUID playerId) {
         GameAggregate game = get(gameId);
         game.setPlayerTwo(playerId);
+        return gameStateRepository.save(game);
+    }
+
+
+    public GameAggregate runInitialSetup(UUID gameId, int playerOneDeckSize, int playerOneBasicCount, int playerTwoDeckSize, int playerTwoBasicCount) {
+        GameAggregate game = get(gameId);
+        if (game.playerTwo() == null) {
+            throw new IllegalStateException("Two players are required before setup");
+        }
+
+        var p1 = setupEngineService.preparePlayer(playerOneDeckSize, playerOneBasicCount, 0);
+        var p2 = setupEngineService.preparePlayer(playerTwoDeckSize, playerTwoBasicCount, p1.mulligans());
+
+        p1.setHandSize(7 + p2.mulligans());
+
+        game.setupByPlayer().put(game.playerOne(), p1);
+        game.setupByPlayer().put(game.playerTwo(), p2);
+
+        game.setFirstPlayer(Math.random() < 0.5 ? game.playerOne() : game.playerTwo());
+        game.setCurrentTurnPlayer(game.firstPlayer());
+
         gameEngineFacade.startSetup(game);
         gameEngineFacade.startActive(game);
-        game.setCurrentTurnPlayer(game.playerOne());
         return gameStateRepository.save(game);
     }
 
