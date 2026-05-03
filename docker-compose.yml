@@ -8,11 +8,15 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
 
   game-service:
     build:
@@ -50,3 +54,7 @@ services:
       - "8083:8083"
     depends_on:
       - redis
+
+volumes:
+  pg_data:
+  redis_data:
