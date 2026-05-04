@@ -1,0 +1,10 @@
+server:
+  port: ${PORT:8081}
+
+spring:
+  application:
+    name: game-service
+
+realtime:
+  service:
+    url: ${REALTIME_URL:http://localhost:8082}
