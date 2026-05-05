@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   postgres:
     image: postgres:16
@@ -6,6 +5,7 @@ services:
       POSTGRES_DB: pokemontcg
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      TZ: UTC
     ports:
       - "5432:5432"
     volumes:
