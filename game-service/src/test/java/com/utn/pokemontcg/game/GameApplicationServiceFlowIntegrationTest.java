@@ -1,24 +1,29 @@
 package com.utn.pokemontcg.game;
 
-import com.utn.pokemontcg.game.application.service.GameApplicationService;
+import com.utn.pokemontcg.game.application.service.*;
+import com.utn.pokemontcg.game.domain.event.GameEventPublisher;
+import com.utn.pokemontcg.game.domain.facade.GameEngineFacade;
 import com.utn.pokemontcg.game.domain.model.GameActionType;
 import com.utn.pokemontcg.game.domain.model.TurnPhase;
+import com.utn.pokemontcg.game.infrastructure.repository.InMemoryGameStateRepository;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SpringBootTest
 class GameApplicationServiceFlowIntegrationTest {
-
-    @Autowired
-    private GameApplicationService gameApplicationService;
 
     @Test
     void createJoinSetupTurnAttack_flow_is_consistent() {
+        GameApplicationService gameApplicationService = new GameApplicationService(
+            new InMemoryGameStateRepository(),
+            new GameEngineFacade(new GameEventPublisher()),
+            new SetupEngineService(),
+            new TurnActionValidator(),
+            new VictoryService()
+        );
+
         UUID p1 = UUID.randomUUID();
         UUID p2 = UUID.randomUUID();
 

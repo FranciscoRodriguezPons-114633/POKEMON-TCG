@@ -112,3 +112,10 @@ La fuente activa del backend está únicamente en los módulos:
 - `game-service/src`
 - `card-service/src`
 - `realtime-service/src`
+
+
+## Persistencia de estado (Fase 1)
+
+- `game-service` ahora persiste snapshots de partida y action log en PostgreSQL vía JPA.
+- Repositorio en memoria queda sólo para tests/local profile `memory`.
+- La estructura legacy de monolito en `/src` no se usa en esta arquitectura consolidada.

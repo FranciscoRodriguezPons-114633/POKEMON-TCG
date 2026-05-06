@@ -4,6 +4,17 @@ server:
 spring:
   application:
     name: game-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pokemontcg}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
 
 realtime:
   service:
