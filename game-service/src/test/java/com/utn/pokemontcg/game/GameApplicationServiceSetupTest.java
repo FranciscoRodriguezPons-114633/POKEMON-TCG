@@ -2,6 +2,7 @@ package com.utn.pokemontcg.game;
 
 import com.utn.pokemontcg.game.application.service.GameApplicationService;
 import com.utn.pokemontcg.game.application.service.SetupEngineService;
+import com.utn.pokemontcg.game.application.service.VictoryService;
 import com.utn.pokemontcg.game.domain.event.GameEventPublisher;
 import com.utn.pokemontcg.game.domain.facade.GameEngineFacade;
 import com.utn.pokemontcg.game.domain.model.GameAggregate;
@@ -21,7 +22,8 @@ class GameApplicationServiceSetupTest {
             new InMemoryGameStateRepository(),
             new GameEngineFacade(new GameEventPublisher()),
             new SetupEngineService(),
-            new com.utn.pokemontcg.game.application.service.TurnActionValidator()
+            new com.utn.pokemontcg.game.application.service.TurnActionValidator(),
+            new VictoryService()
         );
 
         GameAggregate created = service.create(UUID.randomUUID());
