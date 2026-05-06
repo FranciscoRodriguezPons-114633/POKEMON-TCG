@@ -1,84 +1,114 @@
-# Pokémon TCG - Digital Implementation
+# Pokémon TCG Backend - Multi-módulo Maven (3 servicios)
 
-> Implementación digital del Pokémon Trading Card Game (TCG) como Trabajo Práctico Integrador de Programación III - UTN FRC
+Este repositorio ahora está organizado como **multi-módulo Maven** con 3 servicios independientes:
 
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4+-green.svg)](https://spring.io/projects/spring-boot)
-[![Angular](https://img.shields.io/badge/Angular-21+-red.svg)](https://angular.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
-[![Redis](https://img.shields.io/badge/Redis-7+-red.svg)](https://redis.io/)
-[![License](https://img.shields.io/badge/License-Academic-success.svg)]()
+- `game-service` (puerto 8081)
+- `realtime-service` (puerto 8082)
+- `card-service` (puerto 8083)
 
-## 📋 Tabla de Contenidos
+## Estructura
 
-- [Descripción](#-descripción)
-- [Características](#-características)
-- [Arquitectura](#-arquitectura)
-- [Tecnologías](#-tecnologías)
-- [Requisitos Previos](#-requisitos-previos)
-- [Instalación](#-instalación)
-- [Configuración](#-configuración)
-- [Ejecución](#-ejecución)
-- [Testing](#-testing)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [API Documentation](#-api-documentation)
-- [Roadmap](#-roadmap)
-- [Equipo](#-equipo)
-- [Licencia](#-licencia)
+```text
+pokemon-tcg-platform/
+├── pom.xml (parent)
+├── game-service/
+├── realtime-service/
+└── card-service/
+```
 
-## 📖 Descripción
+## Migraciones realizadas
 
-Versión digital completamente funcional del Pokémon TCG que permite a dos jugadores competir en tiempo real siguiendo las reglas oficiales del reglamento XY1. El proyecto implementa un motor de juego completo con todas las mecánicas del juego original, incluyendo sistema de turnos, resolución de ataques, condiciones especiales y múltiples condiciones de victoria.
+### 1) Card API a `card-service`
 
-### Objetivos del Proyecto
+Se migraron responsabilidades de cartas a un servicio dedicado:
 
-- ✅ Implementar todas las reglas oficiales del Pokémon TCG (basadas en XY1 Rulebook)
-- ✅ Comunicación en tiempo real mediante WebSockets
-- ✅ Arquitectura cliente-servidor robusta y escalable
-- ✅ Aplicación de patrones de diseño y principios SOLID
-- ✅ Cobertura de tests > 80% (>90% en componentes críticos)
-- ✅ Integración con API pública pokemontcg.io
+- `CardController`
+- `CardApiService`
+- `PokemonTcgClient`
+- Redis cache (TTL 7 días)
 
-## ✨ Características
+### 2) WebSocket a `realtime-service`
 
-### Funcionalidades Core
+Se migró la capa WebSocket STOMP:
 
-#### 🎴 Deck Builder
-- Construcción y validación de mazos según reglas oficiales
-- Exactamente 60 cartas por mazo
-- Máximo 4 copias por carta (excepto Energía Básica)
-- Máximo 1 AS TÁCTICO por mazo
-- Mínimo 1 Pokémon Básico
-- Integración con set XY (xy1 - 146 cartas)
+- endpoint `/ws`
+- broker `/topic`
+- endpoint interno `/internal/events` para recibir eventos del `game-service`
 
-#### 🎮 Motor de Juego Completo
-- Preparación de partida con sistema de Mulligan
-- Gestión de turnos con fases: DRAW → MAIN → ATTACK → BETWEEN_TURNS
-- Resolución de ataques con pipeline de 7 pasos
-- Sistema de knockout y toma de cartas de Premio
-- 5 condiciones especiales: Dormido, Quemado, Confundido, Paralizado, Envenenado
-- Múltiples condiciones de victoria
+### 3) `game-service` con patrones de diseño requeridos
 
-#### 🔄 Tiempo Real
-- Sincronización de estado vía WebSockets
-- Notificaciones de eventos en tiempo real
-- Reconexión automática tras desconexión
+- **State**
+  - Estados de partida: `WAITING`, `SETUP`, `ACTIVE`, `FINISHED`
+  - Estados de turno: `DRAW`, `MAIN`, `ATTACK`, `BETWEEN_TURNS`
+- **Strategy**
+  - `TrainerEffectStrategy`
+  - `AttackEffectStrategy`
+- **Chain of Responsibility**
+  - `AttackResolutionPipeline` con 7 pasos:
+    1. `EnergyValidationStep`
+    2. `ConfusionCheckStep`
+    3. `SelectionStep`
+    4. `PreAttackStep`
+    5. `ModifierStep`
+    6. `DamageCalculationStep`
+    7. `PostDamageEffectsStep`
+- **Observer**
+  - `GameEventPublisher` + `GameEventObserver`
+  - `HttpRealtimeObserver` notifica al `realtime-service`
+- **Repository**
+  - Interfaces: `GameStateRepository`, `DeckRepository`, `CardRepository`
+  - Implementación inicial: `InMemoryGameStateRepository`
+- **Facade**
+  - `GameEngineFacade` como API interna del motor
 
-#### 🖥️ Interfaz Interactiva
-- Tablero visual con zonas de juego claramente definidas
-- Sistema drag & drop para acciones de juego
-- Feedback visual inmediato
-- Log de acciones en tiempo real
+## Endpoints
 
-### Características Técnicas
+### game-service
 
-- 🏗️ **Arquitectura en Capas** (Presentation → Application → Domain → Infrastructure)
-- 🎯 **Patrones de Diseño**: State, Strategy, Chain of Responsibility, Observer, Repository, Facade
-- 💾 **Persistencia Dual**: PostgreSQL (estado persistente) + Redis (caché + sesiones)
-- 🔒 **Validación Backend**: Toda lógica de juego validada en servidor
-- 📊 **Trazabilidad**: Log completo e inmutable de todas las acciones
-- 🧪 **Alta Cobertura de Tests**: JUnit, Mockito, tests E2E
+- `POST /api/games`
+- `POST /api/games/{gameId}/join`
+- `POST /api/games/{gameId}/actions`
+- `GET /api/games/{gameId}`
 
-## 🏛️ Arquitectura
+### card-service
 
-### Diagrama de Arquitectura General
+- `GET /api/cards?q=set.id:xy1&pageSize=20`
+- `GET /api/cards/{id}`
+
+### realtime-service
+
+- `POST /internal/events` (uso interno entre servicios)
+- WebSocket STOMP `/ws` + `/topic/games/{gameId}/events`
+
+## Build
+
+```bash
+mvn -pl game-service,card-service,realtime-service clean package
+```
+
+## Run local
+
+```bash
+docker compose up -d
+```
+
+> Nota: los Dockerfiles esperan jars construidos en `*/target/`.
+
+
+## Planificación (Fase 0)
+
+Se agregaron artefactos de gestión para congelar alcance y preparar ejecución por historias:
+
+- `docs/phase-0/mvp-scope.md`
+- `docs/phase-0/definition-of-done-rf.md`
+- `docs/phase-0/product-backlog-stories.md`
+
+
+## Estado de legacy monolito (`src/` raíz)
+
+La estructura legacy de monolito en `src/` de raíz **no forma parte** de esta versión consolidada.
+La fuente activa del backend está únicamente en los módulos:
+
+- `game-service/src`
+- `card-service/src`
+- `realtime-service/src`
