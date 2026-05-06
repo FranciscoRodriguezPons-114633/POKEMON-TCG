@@ -6,5 +6,8 @@ public enum GameActionType {
     PLAY_SUPPORTER,
     RETREAT,
     ATTACK,
-    END_TURN
+    END_TURN,
+    TAKE_PRIZE,
+    APPLY_SPECIAL_CONDITION,
+    RESOLVE_BETWEEN_TURNS
 }

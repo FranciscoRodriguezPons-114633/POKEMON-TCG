@@ -1,6 +1,7 @@
 package com.utn.pokemontcg.game.domain.model;
 
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -17,6 +18,11 @@ public class GameAggregate {
     private UUID firstPlayer;
     private boolean firstTurn = true;
     private final TurnFlags turnFlags = new TurnFlags();
+    private final Map<UUID, Integer> prizeCardsRemaining = new HashMap<>();
+    private final Map<UUID, Integer> activeHp = new HashMap<>();
+    private final Map<UUID, Integer> deckCardsRemaining = new HashMap<>();
+    private final Map<UUID, EnumSet<StatusCondition>> statusByPlayer = new HashMap<>();
+    private UUID winner;
 
     public GameAggregate(UUID playerOne) {
         this.id = UUID.randomUUID();
@@ -43,6 +49,12 @@ public class GameAggregate {
     public boolean firstTurn() { return firstTurn; }
     public void setFirstTurn(boolean firstTurn) { this.firstTurn = firstTurn; touch(); }
     public TurnFlags turnFlags() { return turnFlags; }
+    public Map<UUID, Integer> prizeCardsRemaining() { return prizeCardsRemaining; }
+    public Map<UUID, Integer> activeHp() { return activeHp; }
+    public Map<UUID, Integer> deckCardsRemaining() { return deckCardsRemaining; }
+    public Map<UUID, EnumSet<StatusCondition>> statusByPlayer() { return statusByPlayer; }
+    public UUID winner() { return winner; }
+    public void setWinner(UUID winner) { this.winner = winner; touch(); }
 
     private void touch() { this.updatedAt = Instant.now(); }
 }

@@ -30,6 +30,11 @@ public class TurnActionValidator {
                 require(!game.firstTurn(), "No se puede atacar en el primer turno global");
             }
             case END_TURN -> require(phase == TurnPhase.BETWEEN_TURNS, "END_TURN solo en BETWEEN_TURNS");
+            case TAKE_PRIZE -> require(phase == TurnPhase.BETWEEN_TURNS, "TAKE_PRIZE solo en BETWEEN_TURNS");
+            case APPLY_SPECIAL_CONDITION -> require(phase == TurnPhase.ATTACK || phase == TurnPhase.BETWEEN_TURNS,
+                "APPLY_SPECIAL_CONDITION solo en ATTACK o BETWEEN_TURNS");
+            case RESOLVE_BETWEEN_TURNS -> require(phase == TurnPhase.BETWEEN_TURNS,
+                "RESOLVE_BETWEEN_TURNS solo en BETWEEN_TURNS");
         }
     }
 
