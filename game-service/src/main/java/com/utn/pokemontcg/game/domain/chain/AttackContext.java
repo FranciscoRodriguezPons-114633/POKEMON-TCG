@@ -2,9 +2,6 @@ package com.utn.pokemontcg.game.domain.chain;
 
 import com.utn.pokemontcg.game.domain.model.GameAggregate;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class AttackContext {
     private final GameAggregate game;
     private int requiredEnergy;
@@ -19,7 +16,6 @@ public class AttackContext {
     private int damage;
     private int selfDamage;
     private boolean postEffectsApplied;
-    private final List<String> auditTrail = new ArrayList<>();
 
     public AttackContext(GameAggregate game) {
         this.game = game;
@@ -50,6 +46,4 @@ public class AttackContext {
     public void setSelfDamage(int selfDamage) { this.selfDamage = selfDamage; }
     public boolean postEffectsApplied() { return postEffectsApplied; }
     public void setPostEffectsApplied(boolean postEffectsApplied) { this.postEffectsApplied = postEffectsApplied; }
-    public List<String> auditTrail() { return List.copyOf(auditTrail); }
-    public void audit(String entry) { this.auditTrail.add(entry); }
 }
