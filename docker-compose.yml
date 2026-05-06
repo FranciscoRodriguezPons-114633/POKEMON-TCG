@@ -1,0 +1,60 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: pokemontcg
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  game-service:
+    build:
+      context: .
+      dockerfile: game-service/Dockerfile
+    environment:
+      PORT: 8081
+      REALTIME_URL: http://realtime-service:8082
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+      - redis
+      - realtime-service
+
+  realtime-service:
+    build:
+      context: .
+      dockerfile: realtime-service/Dockerfile
+    environment:
+      PORT: 8082
+    ports:
+      - "8082:8082"
+
+  card-service:
+    build:
+      context: .
+      dockerfile: card-service/Dockerfile
+    environment:
+      PORT: 8083
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      POKEMON_TCG_API_KEY: ${POKEMON_TCG_API_KEY:-}
+    ports:
+      - "8083:8083"
+    depends_on:
+      - redis
+
+volumes:
+  pg_data:
+  redis_data:
