@@ -51,7 +51,10 @@ public class GameEngineFacade {
         ));
         AttackContext context = buildDefaultAttackContext(game);
         pipeline.resolve(context);
-        eventPublisher.publish(GameEvent.of(game.id(), "ATTACK_RESOLVED", Map.of("damage", context.damage())));
+        eventPublisher.publish(GameEvent.of(game.id(), "ATTACK_RESOLVED", Map.of(
+            "damage", context.damage(),
+            "auditTrail", context.auditTrail()
+        )));
         game.setTurnPhase(com.utn.pokemontcg.game.domain.model.TurnPhase.BETWEEN_TURNS);
     }
 
