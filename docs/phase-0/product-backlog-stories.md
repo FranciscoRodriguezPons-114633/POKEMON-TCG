@@ -128,3 +128,9 @@ Como jugador, quiero retomar partida al reconectar.
 3. B1, B2, B3
 4. C2, D1, D2
 5. E1-E4 + F1/F2
+
+
+## Estado operativo actual (actualizado 2026-05-06)
+- Sprint activo: **Sprint 1 (A1+A2+A3)**.
+- Rama de trabajo congelada: `work`.
+- Siguiente bloque habilitado luego de DoD: A4+A5+A6.
