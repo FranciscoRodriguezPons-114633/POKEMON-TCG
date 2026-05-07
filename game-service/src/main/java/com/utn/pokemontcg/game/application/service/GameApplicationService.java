@@ -1,14 +1,16 @@
 package com.utn.pokemontcg.game.application.service;
 
 import com.utn.pokemontcg.game.application.repository.GameStateRepository;
+import com.utn.pokemontcg.game.domain.facade.GameEngineFacade;
 import com.utn.pokemontcg.game.domain.model.GameActionType;
 import com.utn.pokemontcg.game.domain.model.GameAggregate;
+import com.utn.pokemontcg.game.domain.model.StatusCondition;
 import com.utn.pokemontcg.game.domain.model.TurnPhase;
-import com.utn.pokemontcg.game.domain.facade.GameEngineFacade;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -40,7 +42,6 @@ public class GameApplicationService {
         game.setPlayerTwo(playerId);
         return gameStateRepository.save(game);
     }
-
 
     public GameAggregate runInitialSetup(UUID gameId, int playerOneDeckSize, int playerOneBasicCount, int playerTwoDeckSize, int playerTwoBasicCount) {
         GameAggregate game = get(gameId);
@@ -79,8 +80,10 @@ public class GameApplicationService {
             case ATTACK -> {
                 game.turnFlags().setAttacked(true);
                 gameEngineFacade.resolveAttack(game);
-                UUID opponent = opponentOf(game, game.currentTurnPlayer());
-                game.activeHp().put(opponent, game.activeHp().getOrDefault(opponent, 120) - 30);
+                UUID attacker = game.currentTurnPlayer();
+                UUID defender = opponentOf(game, attacker);
+                game.activeHp().put(defender, game.activeHp().getOrDefault(defender, 120) - 30);
+                victoryService.applyKnockoutAndPrizes(game, attacker, defender, 1);
             }
             case END_TURN -> {
                 gameEngineFacade.advanceTurnPhase(game);
@@ -95,16 +98,8 @@ public class GameApplicationService {
                 UUID player = game.currentTurnPlayer();
                 game.prizeCardsRemaining().put(player, game.prizeCardsRemaining().getOrDefault(player, 6) - 1);
             }
-            case APPLY_SPECIAL_CONDITION -> game.statusByPlayer()
-                .computeIfAbsent(opponentOf(game, game.currentTurnPlayer()), ignored -> EnumSet.noneOf(com.utn.pokemontcg.game.domain.model.StatusCondition.class))
-                .add(com.utn.pokemontcg.game.domain.model.StatusCondition.POISONED);
-            case RESOLVE_BETWEEN_TURNS -> {
-                UUID affected = opponentOf(game, game.currentTurnPlayer());
-                if (game.statusByPlayer().getOrDefault(affected, EnumSet.noneOf(com.utn.pokemontcg.game.domain.model.StatusCondition.class))
-                    .contains(com.utn.pokemontcg.game.domain.model.StatusCondition.POISONED)) {
-                    game.activeHp().put(affected, game.activeHp().getOrDefault(affected, 120) - 10);
-                }
-            }
+            case APPLY_SPECIAL_CONDITION -> applyConditionWithCompatibility(game, opponentOf(game, game.currentTurnPlayer()), StatusCondition.POISONED);
+            case RESOLVE_BETWEEN_TURNS -> resolveBetweenTurns(game, opponentOf(game, game.currentTurnPlayer()));
         }
 
         victoryService.closeGameIfNeeded(game);
@@ -112,6 +107,10 @@ public class GameApplicationService {
             game.gameState().name() + "/" + game.turnPhase().name(), Instant.now());
 
         return gameStateRepository.save(game);
+    }
+
+    public List<String> actionLog(UUID gameId) {
+        return gameStateRepository.actionLog(gameId);
     }
 
     public GameAggregate get(UUID gameId) {
@@ -131,5 +130,30 @@ public class GameApplicationService {
     private UUID opponentOf(GameAggregate game, UUID player) {
         if (player == null) return game.playerTwo();
         return player.equals(game.playerOne()) ? game.playerTwo() : game.playerOne();
+    }
+
+    private void applyConditionWithCompatibility(GameAggregate game, UUID target, StatusCondition newCondition) {
+        EnumSet<StatusCondition> existing = game.statusByPlayer().computeIfAbsent(target, ignored -> EnumSet.noneOf(StatusCondition.class));
+        if (newCondition == StatusCondition.ASLEEP || newCondition == StatusCondition.CONFUSED || newCondition == StatusCondition.PARALYZED) {
+            existing.remove(StatusCondition.ASLEEP);
+            existing.remove(StatusCondition.CONFUSED);
+            existing.remove(StatusCondition.PARALYZED);
+        }
+        existing.add(newCondition);
+    }
+
+    private void resolveBetweenTurns(GameAggregate game, UUID affected) {
+        EnumSet<StatusCondition> statuses = game.statusByPlayer().getOrDefault(affected, EnumSet.noneOf(StatusCondition.class));
+
+        if (statuses.contains(StatusCondition.POISONED)) {
+            game.activeHp().put(affected, game.activeHp().getOrDefault(affected, 120) - 10);
+        }
+        if (statuses.contains(StatusCondition.BURNED)) {
+            game.activeHp().put(affected, game.activeHp().getOrDefault(affected, 120) - 20);
+        }
+        if (statuses.contains(StatusCondition.PARALYZED)) {
+            statuses.remove(StatusCondition.PARALYZED);
+        }
+        game.statusByPlayer().put(affected, statuses);
     }
 }

@@ -11,6 +11,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -45,13 +47,18 @@ public class GameController {
 
     @PostMapping("/{gameId}/actions")
     public ResponseEntity<GameStateResponse> action(@PathVariable UUID gameId,
-                                                       @Valid @RequestBody GameActionRequest request) {
+                                                     @Valid @RequestBody GameActionRequest request) {
         return ResponseEntity.ok(toResponse(gameService.executeAction(gameId, request.actionType())));
     }
 
     @GetMapping("/{gameId}")
     public ResponseEntity<GameStateResponse> state(@PathVariable UUID gameId) {
         return ResponseEntity.ok(toResponse(gameService.get(gameId)));
+    }
+
+    @GetMapping("/{gameId}/logs")
+    public ResponseEntity<Map<String, List<String>>> actionLog(@PathVariable UUID gameId) {
+        return ResponseEntity.ok(Map.of("entries", gameService.actionLog(gameId)));
     }
 
     private GameStateResponse toResponse(GameAggregate game) {
