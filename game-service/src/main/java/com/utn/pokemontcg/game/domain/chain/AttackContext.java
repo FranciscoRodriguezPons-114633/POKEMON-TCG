@@ -50,6 +50,7 @@ public class AttackContext {
     public void setSelfDamage(int selfDamage) { this.selfDamage = selfDamage; }
     public boolean postEffectsApplied() { return postEffectsApplied; }
     public void setPostEffectsApplied(boolean postEffectsApplied) { this.postEffectsApplied = postEffectsApplied; }
+    
     public List<String> auditTrail() { return List.copyOf(auditTrail); }
-    public void audit(String entry) { this.auditTrail.add(entry); }
+    public void audit(String message) { this.auditTrail.add(message); }
 }

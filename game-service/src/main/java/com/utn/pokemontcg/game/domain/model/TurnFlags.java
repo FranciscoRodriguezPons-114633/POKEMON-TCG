@@ -10,45 +10,26 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 public class TurnFlags {
 
     private boolean energyAttached;
-
     private boolean retreated;
-
     private boolean supporterPlayed;
-
     private boolean attacked;
 
-    public boolean energyAttached() {
-        return energyAttached;
-    }
+    // Getters & Setters
+    public boolean energyAttached() { return energyAttached; }
+    public void setEnergyAttached(boolean energyAttached) { this.energyAttached = energyAttached; }
 
-    public void setEnergyAttached(boolean energyAttached) {
-        this.energyAttached = energyAttached;
-    }
+    public boolean retreated() { return retreated; }
+    public void setRetreated(boolean retreated) { this.retreated = retreated; }
 
-    public boolean retreated() {
-        return retreated;
-    }
+    public boolean supporterPlayed() { return supporterPlayed; }
+    public void setSupporterPlayed(boolean supporterPlayed) { this.supporterPlayed = supporterPlayed; }
 
-    public void setRetreated(boolean retreated) {
-        this.retreated = retreated;
-    }
+    public boolean attacked() { return attacked; }
+    public void setAttacked(boolean attacked) { this.attacked = attacked; }
 
-    public boolean supporterPlayed() {
-        return supporterPlayed;
-    }
-
-    public void setSupporterPlayed(boolean supporterPlayed) {
-        this.supporterPlayed = supporterPlayed;
-    }
-
-    public boolean attacked() {
-        return attacked;
-    }
-
-    public void setAttacked(boolean attacked) {
-        this.attacked = attacked;
-    }
-
+    /**
+     * Reinicia todas las flags al finalizar o comenzar un turno.
+     */
     public void reset() {
         this.energyAttached = false;
         this.retreated = false;

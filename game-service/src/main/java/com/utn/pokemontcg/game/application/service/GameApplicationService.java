@@ -117,14 +117,12 @@ public class GameApplicationService {
     }
 
     public GameAggregate executeAction(UUID gameId, GameActionType actionType) {
-
         GameAggregate game = get(gameId);
 
         turnActionValidator.validate(game, actionType);
         ruleValidator.validate(game, actionType);
 
         switch (actionType) {
-
             case DRAW -> gameEngineFacade.advanceTurnPhase(game);
 
             case ATTACH_ENERGY ->
@@ -137,9 +135,7 @@ public class GameApplicationService {
                 game.turnFlags().setRetreated(true);
 
             case ATTACK -> {
-
                 game.turnFlags().setAttacked(true);
-
                 gameEngineFacade.resolveAttack(game);
 
                 UUID attacker = game.currentTurnPlayer();
@@ -168,11 +164,9 @@ public class GameApplicationService {
             }
 
             case END_TURN -> {
-
                 gameEngineFacade.advanceTurnPhase(game);
 
                 if (game.turnPhase() == TurnPhase.DRAW) {
-
                     game.setCurrentTurnPlayer(
                         game.currentTurnPlayer() != null
                             && game.currentTurnPlayer().equals(game.playerOne())
@@ -186,7 +180,6 @@ public class GameApplicationService {
             }
 
             case TAKE_PRIZE -> {
-
                 UUID player = game.currentTurnPlayer();
 
                 game.prizeCardsRemaining().put(
@@ -238,7 +231,6 @@ public class GameApplicationService {
         int p1DeckSize,
         int p2DeckSize
     ) {
-
         game.prizeCardsRemaining().put(game.playerOne(), 6);
         game.prizeCardsRemaining().put(game.playerTwo(), 6);
 
@@ -260,7 +252,6 @@ public class GameApplicationService {
     }
 
     private UUID opponentOf(GameAggregate game, UUID player) {
-
         if (player == null) {
             return game.playerTwo();
         }

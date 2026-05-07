@@ -14,7 +14,6 @@ import com.utn.pokemontcg.game.domain.facade.GameEngineFacade;
 import com.utn.pokemontcg.game.domain.model.GameAggregate;
 import com.utn.pokemontcg.game.domain.model.GameState;
 import com.utn.pokemontcg.game.infrastructure.repository.InMemoryGameStateRepository;
-
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -25,7 +24,6 @@ class GameApplicationServiceSetupTest {
 
     @Test
     void shouldRunInitialSetupAndActivateGame() {
-
         GameApplicationService service =
                 new GameApplicationService(
                         new InMemoryGameStateRepository(),

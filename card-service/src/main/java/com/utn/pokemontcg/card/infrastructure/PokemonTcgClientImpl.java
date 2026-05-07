@@ -12,6 +12,9 @@ import java.util.Objects;
 @Component
 public class PokemonTcgClientImpl implements PokemonTcgClient {
 
+    private static final ParameterizedTypeReference<Map<String, Object>> MAP_TYPE = new ParameterizedTypeReference<>() {
+    };
+
     private final RestClient restClient;
 
     public PokemonTcgClientImpl(@Value("${pokemontcg.base-url}") @NonNull String baseUrl,
@@ -28,7 +31,7 @@ public class PokemonTcgClientImpl implements PokemonTcgClient {
         return Objects.requireNonNull(restClient.get()
             .uri(uri -> uri.path("/cards").queryParam("q", query).queryParam("pageSize", pageSize).build())
             .retrieve()
-            .body(new ParameterizedTypeReference<>() {}));
+            .body(MAP_TYPE));
     }
 
     @Override
@@ -36,6 +39,6 @@ public class PokemonTcgClientImpl implements PokemonTcgClient {
         return Objects.requireNonNull(restClient.get()
             .uri("/cards/{id}", id)
             .retrieve()
-            .body(new ParameterizedTypeReference<>() {}));
+            .body(MAP_TYPE));
     }
 }
