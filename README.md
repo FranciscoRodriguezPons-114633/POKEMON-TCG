@@ -119,3 +119,19 @@ La fuente activa del backend está únicamente en los módulos:
 - `game-service` ahora persiste snapshots de partida y action log en PostgreSQL vía JPA.
 - Repositorio en memoria queda sólo para tests/local profile `memory`.
 - La estructura legacy de monolito en `/src` no se usa en esta arquitectura consolidada.
+
+
+## Estado actual del proyecto
+
+### Hecho hasta ahora
+- Arquitectura multi-módulo con `game-service`, `card-service` y `realtime-service`.
+- Persistencia base en PostgreSQL para snapshots y logs de partida en `game-service`.
+- RF-04 backend inicial: CRUD de mazos (`/api/decks`) y validación oficial mínima (60 cartas, máximo 4 copias salvo energía básica, 1 AS TÁCTICO, al menos 1 Básico).
+- Endpoints de juego para create/join/setup/actions/state/logs.
+
+### Falta (prioridad real)
+1. RF-01 completo: KO total de campo, condiciones especiales completas y muerte súbita robusta.
+2. RF-05 producción: rehidratación y replay robustos con consistencia de concurrencia.
+3. RF-06: reconexión robusta por sesión y sincronización de estado pendiente.
+4. RF-07 frontend: lobby/tablero/drag&drop/log visual/e2e.
+5. RNF calidad: cobertura objetivo (80% global, >90% críticos) y test E2E completo.
