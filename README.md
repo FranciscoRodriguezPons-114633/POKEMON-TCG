@@ -94,7 +94,6 @@ docker compose up -d
 
 > Nota: los Dockerfiles esperan jars construidos en `*/target/`.
 
-
 ## Planificación (Fase 0)
 
 Se agregaron artefactos de gestión para congelar alcance y preparar ejecución por historias:
@@ -102,7 +101,6 @@ Se agregaron artefactos de gestión para congelar alcance y preparar ejecución 
 - `docs/phase-0/mvp-scope.md`
 - `docs/phase-0/definition-of-done-rf.md`
 - `docs/phase-0/product-backlog-stories.md`
-
 
 ## Estado de legacy monolito (`src/` raíz)
 
@@ -112,7 +110,6 @@ La fuente activa del backend está únicamente en los módulos:
 - `game-service/src`
 - `card-service/src`
 - `realtime-service/src`
-
 
 ## Persistencia de estado (Fase 1)
 
