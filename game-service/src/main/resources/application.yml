@@ -5,6 +5,21 @@ spring:
   application:
     name: game-service
 
+  # Configuración de Persistencia (PostgreSQL)
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pokemontcg}
+    username: ${DB_USER:franciscorodriguezpons}
+    password: ${DB_PASSWORD:}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+# Configuración de integración con otros microservicios
 realtime:
   service:
     url: ${REALTIME_URL:http://localhost:8082}

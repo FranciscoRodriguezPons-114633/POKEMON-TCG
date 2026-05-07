@@ -83,3 +83,9 @@ Entregar flujo funcional mínimo de motor para:
   - **Mitigación:** fixtures deterministas y repositorios aislados por test.
 - **Riesgo:** cambio de scope a mitad del sprint.
   - **Mitigación:** alcance congelado (solo A1, A2, A3).
+
+---
+
+## Anexo operativo (actualizado 2026-05-06)
+- Se formaliza gobernanza de ejecución en `docs/phase-1/operational-governance-day-0.md`.
+- Para todo Sprint 3 se exige owner por dominio + criterio técnico + riesgo + prueba obligatoria por historia.

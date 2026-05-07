@@ -3,6 +3,7 @@ package com.utn.pokemontcg.game.infrastructure.repository;
 import com.utn.pokemontcg.game.application.repository.GameStateRepository;
 import com.utn.pokemontcg.game.domain.model.GameActionType;
 import com.utn.pokemontcg.game.domain.model.GameAggregate;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -14,6 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
+@Profile("memory")
 public class InMemoryGameStateRepository implements GameStateRepository {
 
     private final Map<UUID, GameAggregate> store = new ConcurrentHashMap<>();

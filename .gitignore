@@ -1,7 +1,7 @@
-/target/
+**/target/
+
 /.idea/
 *.iml
 *.log
 .DS_Store
 .env
-*/target/

@@ -7,13 +7,20 @@ public class ConfusionCheckStep implements AttackStep {
 
     @Override
     public void execute(AttackContext context) {
+        context.audit("ConfusionCheckStep:start");
         if (context.cancelled()) return;
-        if (!context.confused()) return;
+        if (!context.confused()) {
+            context.audit("ConfusionCheckStep:skip_not_confused");
+            return;
+        }
 
         boolean heads = random.nextBoolean();
         if (!heads) {
             context.setCancelled(true);
             context.setSelfDamage(30);
+            context.audit("ConfusionCheckStep:tails_cancelled");
+            return;
         }
+        context.audit("ConfusionCheckStep:heads_continue");
     }
 }

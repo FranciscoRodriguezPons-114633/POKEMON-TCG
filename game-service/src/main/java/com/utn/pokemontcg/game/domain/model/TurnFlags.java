@@ -1,20 +1,35 @@
 package com.utn.pokemontcg.game.domain.model;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+
+@JsonAutoDetect(
+        fieldVisibility = JsonAutoDetect.Visibility.ANY,
+        getterVisibility = JsonAutoDetect.Visibility.NONE,
+        isGetterVisibility = JsonAutoDetect.Visibility.NONE
+)
 public class TurnFlags {
+
     private boolean energyAttached;
     private boolean retreated;
     private boolean supporterPlayed;
     private boolean attacked;
 
+    // Getters & Setters
     public boolean energyAttached() { return energyAttached; }
     public void setEnergyAttached(boolean energyAttached) { this.energyAttached = energyAttached; }
+
     public boolean retreated() { return retreated; }
     public void setRetreated(boolean retreated) { this.retreated = retreated; }
+
     public boolean supporterPlayed() { return supporterPlayed; }
     public void setSupporterPlayed(boolean supporterPlayed) { this.supporterPlayed = supporterPlayed; }
+
     public boolean attacked() { return attacked; }
     public void setAttacked(boolean attacked) { this.attacked = attacked; }
 
+    /**
+     * Reinicia todas las flags al finalizar o comenzar un turno.
+     */
     public void reset() {
         this.energyAttached = false;
         this.retreated = false;
