@@ -2,12 +2,21 @@ package com.utn.pokemontcg.game.domain.model;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY, getterVisibility = JsonAutoDetect.Visibility.NONE, isGetterVisibility = JsonAutoDetect.Visibility.NONE)
+@JsonAutoDetect(
+        fieldVisibility = JsonAutoDetect.Visibility.ANY,
+        getterVisibility = JsonAutoDetect.Visibility.NONE,
+        isGetterVisibility = JsonAutoDetect.Visibility.NONE
+)
 public class PlayerSetupState {
+
     private int mulligans;
+
     private int handSize;
+
     private int benchCount;
+
     private int prizeCount;
+
     private boolean hasActive;
 
     public int mulligans() {

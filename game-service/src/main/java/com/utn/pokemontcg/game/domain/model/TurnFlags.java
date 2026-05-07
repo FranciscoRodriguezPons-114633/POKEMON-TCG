@@ -2,11 +2,19 @@ package com.utn.pokemontcg.game.domain.model;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY, getterVisibility = JsonAutoDetect.Visibility.NONE, isGetterVisibility = JsonAutoDetect.Visibility.NONE)
+@JsonAutoDetect(
+        fieldVisibility = JsonAutoDetect.Visibility.ANY,
+        getterVisibility = JsonAutoDetect.Visibility.NONE,
+        isGetterVisibility = JsonAutoDetect.Visibility.NONE
+)
 public class TurnFlags {
+
     private boolean energyAttached;
+
     private boolean retreated;
+
     private boolean supporterPlayed;
+
     private boolean attacked;
 
     public boolean energyAttached() {

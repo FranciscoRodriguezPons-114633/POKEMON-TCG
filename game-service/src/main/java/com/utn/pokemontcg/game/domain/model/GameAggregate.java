@@ -2,29 +2,52 @@ package com.utn.pokemontcg.game.domain.model;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY, getterVisibility = JsonAutoDetect.Visibility.NONE, isGetterVisibility = JsonAutoDetect.Visibility.NONE)
+@JsonAutoDetect(
+        fieldVisibility = JsonAutoDetect.Visibility.ANY,
+        getterVisibility = JsonAutoDetect.Visibility.NONE,
+        isGetterVisibility = JsonAutoDetect.Visibility.NONE
+)
 public class GameAggregate {
+
     private UUID id;
+
     private UUID playerOne;
+
     private UUID playerTwo;
+
     private UUID currentTurnPlayer;
+
     private GameState gameState;
+
     private TurnPhase turnPhase;
+
     private Instant updatedAt;
+
     private Map<UUID, PlayerSetupState> setupByPlayer = new HashMap<>();
+
     private UUID firstPlayer;
+
     private boolean firstTurn = true;
+
     private TurnFlags turnFlags = new TurnFlags();
+
     private Map<UUID, Integer> prizeCardsRemaining = new HashMap<>();
+
     private Map<UUID, Integer> activeHp = new HashMap<>();
+
     private Map<UUID, Integer> deckCardsRemaining = new HashMap<>();
+
     private Map<UUID, EnumSet<StatusCondition>> statusByPlayer = new HashMap<>();
+
+    private Map<UUID, Boolean> activePokemonEx = new HashMap<>();
+
     private UUID winner;
 
     public GameAggregate() {
@@ -164,6 +187,14 @@ public class GameAggregate {
 
     public void setStatusByPlayer(Map<UUID, EnumSet<StatusCondition>> statusByPlayer) {
         this.statusByPlayer = statusByPlayer;
+    }
+
+    public Map<UUID, Boolean> activePokemonEx() {
+        return activePokemonEx;
+    }
+
+    public void setActivePokemonEx(Map<UUID, Boolean> activePokemonEx) {
+        this.activePokemonEx = activePokemonEx;
     }
 
     public UUID winner() {

@@ -94,6 +94,10 @@ docker compose up -d
 
 > Nota: los Dockerfiles esperan jars construidos en `*/target/`.
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/codex/generate-complete-backend-code-structure-lr2t6d
 ## Planificación (Fase 0)
 
 Se agregaron artefactos de gestión para congelar alcance y preparar ejecución por historias:
@@ -102,6 +106,10 @@ Se agregaron artefactos de gestión para congelar alcance y preparar ejecución 
 - `docs/phase-0/definition-of-done-rf.md`
 - `docs/phase-0/product-backlog-stories.md`
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/codex/generate-complete-backend-code-structure-lr2t6d
 ## Estado de legacy monolito (`src/` raíz)
 
 La estructura legacy de monolito en `src/` de raíz **no forma parte** de esta versión consolidada.
@@ -111,6 +119,10 @@ La fuente activa del backend está únicamente en los módulos:
 - `card-service/src`
 - `realtime-service/src`
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/codex/generate-complete-backend-code-structure-lr2t6d
 ## Persistencia de estado (Fase 1)
 
 - `game-service` ahora persiste snapshots de partida y action log en PostgreSQL vía JPA.
