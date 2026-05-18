@@ -10,6 +10,8 @@ import java.util.List;
 @Service
 public class DeckValidationService {
 
+    private static final String REQUIRED_SET = "xy1";
+
     public DeckValidationResult validate(List<DeckCardInput> cards) {
         List<String> errors = new ArrayList<>();
 
@@ -32,6 +34,18 @@ public class DeckValidationService {
             .filter(c -> !c.basicEnergy() && c.quantity() > 4)
             .forEach(c -> errors.add("La carta '" + c.name() + "' excede el máximo de 4 copias."));
 
+        cards.stream()
+            .filter(c -> !REQUIRED_SET.equalsIgnoreCase(setIdOf(c)))
+            .forEach(c -> errors.add("La carta '" + c.name() + "' no pertenece al set obligatorio xy1."));
+
         return new DeckValidationResult(errors.isEmpty(), errors);
+    }
+
+    private String setIdOf(DeckCardInput card) {
+        if (card.setId() != null && !card.setId().isBlank()) {
+            return card.setId();
+        }
+        int separator = card.cardId().indexOf('-');
+        return separator > 0 ? card.cardId().substring(0, separator) : "";
     }
 }

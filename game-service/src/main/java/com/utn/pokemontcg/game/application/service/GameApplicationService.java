@@ -5,6 +5,7 @@ import com.utn.pokemontcg.game.domain.chain.AttackContext;
 import com.utn.pokemontcg.game.domain.engine.DamageCalculator;
 import com.utn.pokemontcg.game.domain.engine.RuleValidator;
 import com.utn.pokemontcg.game.domain.engine.StatusEffectManager;
+import com.utn.pokemontcg.game.domain.event.GameEventType;
 import com.utn.pokemontcg.game.domain.facade.GameEngineFacade;
 import com.utn.pokemontcg.game.domain.model.GameActionType;
 import com.utn.pokemontcg.game.domain.model.GameAggregate;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -52,14 +54,17 @@ public class GameApplicationService {
 
     public GameAggregate create(UUID playerId) {
         GameAggregate game = new GameAggregate(playerId);
-        gameStateRepository.save(game);
-        return game;
+        GameAggregate saved = gameStateRepository.save(game);
+        gameEngineFacade.publish(saved, GameEventType.GAME_CREATED, Map.of("playerOne", playerId));
+        return saved;
     }
 
     public GameAggregate join(UUID gameId, UUID playerId) {
         GameAggregate game = get(gameId);
         game.setPlayerTwo(playerId);
-        return gameStateRepository.save(game);
+        GameAggregate saved = gameStateRepository.save(game);
+        gameEngineFacade.publish(saved, GameEventType.PLAYER_JOINED, Map.of("playerTwo", playerId));
+        return saved;
     }
 
     public GameAggregate runInitialSetup(
@@ -118,11 +123,23 @@ public class GameApplicationService {
             Instant.now()
         );
 
+        gameEngineFacade.publish(saved, GameEventType.SETUP_COMPLETED, Map.of(
+            "firstPlayer", saved.firstPlayer(),
+            "currentTurnPlayer", saved.currentTurnPlayer(),
+            "phase", saved.turnPhase().name()
+        ));
+
         return saved;
     }
 
     public GameAggregate executeAction(UUID gameId, GameActionType actionType) {
+        return executeAction(gameId, actionType, StatusCondition.POISONED);
+    }
+
+    public GameAggregate executeAction(UUID gameId, GameActionType actionType, StatusCondition condition) {
         GameAggregate game = get(gameId);
+        UUID actingPlayer = game.currentTurnPlayer();
+        StatusCondition conditionToApply = condition == null ? StatusCondition.POISONED : condition;
 
         turnActionValidator.validate(game, actionType);
         ruleValidator.validate(game, actionType);
@@ -131,16 +148,30 @@ public class GameApplicationService {
             case DRAW -> {
                 drawForTurn(game, game.currentTurnPlayer());
                 gameEngineFacade.advanceTurnPhase(game);
+                gameEngineFacade.publish(game, GameEventType.CARD_DRAWN, Map.of(
+                    "player", game.currentTurnPlayer(),
+                    "handSize", game.hand().getOrDefault(game.currentTurnPlayer(), List.of()).size(),
+                    "deckRemaining", game.deckCardsRemaining().getOrDefault(game.currentTurnPlayer(), 0)
+                ));
             }
 
-            case ATTACH_ENERGY ->
+            case ATTACH_ENERGY -> {
                 attachEnergyToActive(game, game.currentTurnPlayer());
+                gameEngineFacade.publish(game, GameEventType.ENERGY_ATTACHED, Map.of(
+                    "player", game.currentTurnPlayer(),
+                    "attachedEnergy", game.activeAttachedEnergy().getOrDefault(game.currentTurnPlayer(), 0)
+                ));
+            }
 
-            case PLAY_SUPPORTER ->
+            case PLAY_SUPPORTER -> {
                 game.turnFlags().setSupporterPlayed(true);
+                gameEngineFacade.publish(game, GameEventType.SUPPORTER_PLAYED, Map.of("player", game.currentTurnPlayer()));
+            }
 
-            case RETREAT ->
+            case RETREAT -> {
                 game.turnFlags().setRetreated(true);
+                gameEngineFacade.publish(game, GameEventType.RETREAT_DECLARED, Map.of("player", game.currentTurnPlayer()));
+            }
 
             case ATTACK -> {
                 game.turnFlags().setAttacked(true);
@@ -162,26 +193,20 @@ public class GameApplicationService {
                 applyDamage(game, defender, damage);
                 applyDamage(game, attacker, context.selfDamage());
 
+                int prizesBeforeKo = game.prizeCardsRemaining().getOrDefault(attacker, 6);
                 victoryService.applyKnockoutAndPrizes(
                     game,
                     attacker,
                     defender
                 );
+                publishKoAndPrizeIfNeeded(game, attacker, defender, prizesBeforeKo);
             }
 
             case END_TURN -> {
                 gameEngineFacade.advanceTurnPhase(game);
 
                 if (game.turnPhase() == TurnPhase.DRAW) {
-                    game.setCurrentTurnPlayer(
-                        game.currentTurnPlayer() != null
-                            && game.currentTurnPlayer().equals(game.playerOne())
-                            ? game.playerTwo()
-                            : game.playerOne()
-                    );
-
-                    game.turnFlags().reset();
-                    game.setFirstTurn(false);
+                    startNextTurn(game);
                 }
             }
 
@@ -192,25 +217,47 @@ public class GameApplicationService {
                     player,
                     game.prizeCardsRemaining().getOrDefault(player, 6) - 1
                 );
+                gameEngineFacade.publish(game, GameEventType.PRIZE_TAKEN, Map.of(
+                    "player", player,
+                    "prizeCardsRemaining", game.prizeCardsRemaining().getOrDefault(player, 0)
+                ));
             }
 
-            case APPLY_SPECIAL_CONDITION ->
+            case APPLY_SPECIAL_CONDITION -> {
                 statusEffectManager.applyCondition(
                     game,
                     opponentOf(game, game.currentTurnPlayer()),
-                    StatusCondition.POISONED
+                    conditionToApply
                 );
+                gameEngineFacade.publish(game, GameEventType.STATUS_APPLIED, Map.of(
+                    "target", opponentOf(game, game.currentTurnPlayer()),
+                    "condition", conditionToApply.name()
+                ));
+            }
 
-            case RESOLVE_BETWEEN_TURNS ->
+            case RESOLVE_BETWEEN_TURNS -> {
                 resolveBetweenTurnsForBothPlayers(game);
+                gameEngineFacade.publish(game, GameEventType.BETWEEN_TURNS_RESOLVED, Map.of(
+                    "playerOneHp", game.activeHp().getOrDefault(game.playerOne(), 0),
+                    "playerTwoHp", game.activeHp().getOrDefault(game.playerTwo(), 0)
+                ));
+                victoryService.closeGameIfNeeded(game);
+                if (game.gameState() != GameState.FINISHED) {
+                    gameEngineFacade.advanceTurnPhase(game);
+                    startNextTurn(game);
+                }
+            }
         }
 
         victoryService.closeGameIfNeeded(game);
+        if (game.gameState() == GameState.FINISHED) {
+            gameEngineFacade.publish(game, GameEventType.GAME_FINISHED, Map.of("winner", game.winner()));
+        }
 
         gameStateRepository.appendActionLog(
             game.id(),
             actionType,
-            game.currentTurnPlayer(),
+            actingPlayer,
             game.gameState().name() + "/" + game.turnPhase().name(),
             Instant.now()
         );
@@ -280,7 +327,7 @@ public class GameApplicationService {
         int counters = damage / 10;
         int newCounters = game.activeDamageCounters().getOrDefault(player, 0) + counters;
         game.activeDamageCounters().put(player, newCounters);
-        game.activeHp().put(player, Math.max(0, 120 - (newCounters * 10)));
+        game.activeHp().put(player, Math.max(0, game.activeMaxHp(player) - (newCounters * 10)));
     }
 
     private void resolveBetweenTurnsForBothPlayers(GameAggregate game) {
@@ -288,5 +335,38 @@ public class GameApplicationService {
         statusEffectManager.resolveBetweenTurns(game, game.playerTwo());
         victoryService.applyKnockoutAndPrizes(game, game.playerOne(), game.playerTwo());
         victoryService.applyKnockoutAndPrizes(game, game.playerTwo(), game.playerOne());
+    }
+
+    private void startNextTurn(GameAggregate game) {
+        game.setCurrentTurnPlayer(
+            game.currentTurnPlayer() != null
+                && game.currentTurnPlayer().equals(game.playerOne())
+                ? game.playerTwo()
+                : game.playerOne()
+        );
+        game.turnFlags().reset();
+        game.setFirstTurn(false);
+        gameEngineFacade.publish(game, GameEventType.TURN_STARTED, Map.of(
+            "currentTurnPlayer", game.currentTurnPlayer(),
+            "phase", game.turnPhase().name()
+        ));
+    }
+
+    private void publishKoAndPrizeIfNeeded(GameAggregate game, UUID attacker, UUID defender, int prizesBeforeKo) {
+        if (defender == null) {
+            return;
+        }
+        int prizesAfterKo = game.prizeCardsRemaining().getOrDefault(attacker, 6);
+        if (prizesAfterKo >= prizesBeforeKo) {
+            return;
+        }
+        gameEngineFacade.publish(game, GameEventType.KO, Map.of(
+            "attacker", attacker,
+            "defender", defender
+        ));
+        gameEngineFacade.publish(game, GameEventType.PRIZE_TAKEN, Map.of(
+            "player", attacker,
+            "prizeCardsRemaining", prizesAfterKo
+        ));
     }
 }

@@ -1,5 +1,7 @@
 package com.utn.pokemontcg.game.application.service;
 
+import com.utn.pokemontcg.game.domain.model.GameAggregate;
+import com.utn.pokemontcg.game.domain.model.GameCard;
 import com.utn.pokemontcg.game.domain.model.PlayerSetupState;
 import org.springframework.stereotype.Service;
 
@@ -7,6 +9,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -38,14 +41,14 @@ public class SetupEngineService {
     }
 
     public PlayerSetupState preparePlayerBoard(UUID player, int deckSize, int basicCount, int opponentMulligans,
-                                               com.utn.pokemontcg.game.domain.model.GameAggregate game) {
+                                               GameAggregate game) {
         PlayerSetupState state = preparePlayer(deckSize, basicCount, opponentMulligans);
         int mulligans = 0;
         List<String> deck;
         List<String> hand;
 
         do {
-            deck = buildDeck(player, deckSize, basicCount);
+            deck = buildDeck(player, deckSize, basicCount, game);
             Collections.shuffle(deck, random);
             hand = draw(deck, 7);
             if (containsBasic(hand)) {
@@ -59,10 +62,10 @@ public class SetupEngineService {
 
         String active = removeFirstBasic(hand);
         game.activePokemon().put(player, active);
-        game.activeHp().put(player, 120);
+        game.activeHp().put(player, game.activeMaxHp(player));
         game.activeDamageCounters().put(player, 0);
         game.activeAttachedEnergy().put(player, 0);
-        game.activePokemonEx().put(player, active.endsWith("-EX"));
+        game.activePokemonEx().put(player, game.cardCatalog().get(active).isPokemonEx());
 
         List<String> bench = game.bench().get(player);
         while (bench.size() < 5) {
@@ -74,6 +77,7 @@ public class SetupEngineService {
         }
 
         game.prizeCards().put(player, draw(deck, 6));
+        game.deck().put(player, new ArrayList<>(deck));
         game.prizeCardsRemaining().put(player, game.prizeCards().get(player).size());
         game.deckCardsRemaining().put(player, deck.size());
 
@@ -101,13 +105,33 @@ public class SetupEngineService {
         return successes > 0;
     }
 
-    private List<String> buildDeck(UUID player, int deckSize, int basicCount) {
+    private List<String> buildDeck(UUID player, int deckSize, int basicCount, GameAggregate game) {
         List<String> cards = new ArrayList<>(deckSize);
         for (int i = 0; i < basicCount; i++) {
-            cards.add("BASIC:" + player + ":" + i);
+            String id = "xy1-basic-" + player + "-" + i;
+            cards.add(id);
+            game.registerCard(new GameCard(
+                id,
+                "Starter Basic " + i,
+                "Pokemon",
+                Set.of("Basic"),
+                120,
+                30,
+                1
+            ));
         }
         for (int i = basicCount; i < deckSize; i++) {
-            cards.add("CARD:" + player + ":" + i);
+            String id = "xy1-energy-" + player + "-" + i;
+            cards.add(id);
+            game.registerCard(new GameCard(
+                id,
+                "Basic Energy " + i,
+                "Energy",
+                Set.of("Basic"),
+                0,
+                0,
+                0
+            ));
         }
         return cards;
     }
@@ -121,13 +145,13 @@ public class SetupEngineService {
     }
 
     private boolean containsBasic(List<String> cards) {
-        return cards.stream().anyMatch(card -> card.startsWith("BASIC:"));
+        return cards.stream().anyMatch(card -> card.startsWith("xy1-basic-"));
     }
 
     private String removeFirstBasic(List<String> cards) {
         for (int i = 0; i < cards.size(); i++) {
             String card = cards.get(i);
-            if (card.startsWith("BASIC:")) {
+            if (card.startsWith("xy1-basic-")) {
                 cards.remove(i);
                 return card;
             }

@@ -53,6 +53,6 @@ public class StatusEffectManager {
     private void addDamageCounters(GameAggregate game, UUID target, int counters) {
         int newCounters = game.activeDamageCounters().getOrDefault(target, 0) + counters;
         game.activeDamageCounters().put(target, newCounters);
-        game.activeHp().put(target, Math.max(0, 120 - (newCounters * 10)));
+        game.activeHp().put(target, Math.max(0, game.activeMaxHp(target) - (newCounters * 10)));
     }
 }

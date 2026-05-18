@@ -92,9 +92,10 @@ public class VictoryService {
         }
         String promoted = bench.remove(0);
         game.activePokemon().put(player, promoted);
-        game.activeHp().put(player, 120);
+        game.activeHp().put(player, game.activeMaxHp(player));
         game.activeDamageCounters().put(player, 0);
         game.activeAttachedEnergy().put(player, 0);
-        game.activePokemonEx().put(player, promoted.endsWith("-EX"));
+        var card = game.cardCatalog().get(promoted);
+        game.activePokemonEx().put(player, card != null && card.isPokemonEx());
     }
 }

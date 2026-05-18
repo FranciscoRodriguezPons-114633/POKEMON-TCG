@@ -1,5 +1,7 @@
 package com.utn.pokemontcg.game.domain.model;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -8,9 +10,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@JsonAutoDetect(
+        fieldVisibility = JsonAutoDetect.Visibility.ANY,
+        getterVisibility = JsonAutoDetect.Visibility.NONE,
+        isGetterVisibility = JsonAutoDetect.Visibility.NONE
+)
 public class GameAggregate {
 
-    private final UUID id;
+    private UUID id;
 
     private UUID playerOne;
     private UUID playerTwo;
@@ -42,6 +49,7 @@ public class GameAggregate {
     private final Map<UUID, List<String>> deck = new HashMap<>();
     private final Map<UUID, List<String>> prizeCards = new HashMap<>();
     private final Map<UUID, List<String>> discardPile = new HashMap<>();
+    private final Map<String, GameCard> cardCatalog = new HashMap<>();
 
     private int activeAttackBaseDamage = 30;
     private int activeAttackRequiredEnergy = 1;
@@ -117,6 +125,8 @@ public class GameAggregate {
     public Map<UUID, List<String>> prizeCards() { return prizeCards; }
 
     public Map<UUID, List<String>> discardPile() { return discardPile; }
+
+    public Map<String, GameCard> cardCatalog() { return cardCatalog; }
 
     public int activeAttackBaseDamage() { return activeAttackBaseDamage; }
 
@@ -203,6 +213,16 @@ public class GameAggregate {
         activeAttachedEnergy.put(player, 0);
         deckCardsRemaining.put(player, orderedDeck.size());
         touch();
+    }
+
+    public void registerCard(GameCard card) {
+        cardCatalog.put(card.id(), card);
+        touch();
+    }
+
+    public int activeMaxHp(UUID player) {
+        GameCard card = cardCatalog.get(activePokemon.get(player));
+        return card != null && card.hp() > 0 ? card.hp() : 120;
     }
 
     public boolean hasPokemonInPlay(UUID player) {

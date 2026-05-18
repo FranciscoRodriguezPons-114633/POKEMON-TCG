@@ -8,4 +8,8 @@ public record GameEvent(UUID gameId, String type, Map<String, Object> payload, I
     public static GameEvent of(UUID gameId, String type, Map<String, Object> payload) {
         return new GameEvent(gameId, type, payload, Instant.now());
     }
+
+    public static GameEvent of(UUID gameId, GameEventType type, Map<String, Object> payload) {
+        return of(gameId, type.name(), payload);
+    }
 }
