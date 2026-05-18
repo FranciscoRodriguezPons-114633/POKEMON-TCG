@@ -14,7 +14,7 @@ class DeckValidationServiceTest {
 
     @Test
     void shouldRejectDeckWithout60Cards() {
-        var result = validator.validate(List.of(new DeckCardInput("c1", "Card 1", 10, "Pokemon", "Basic", false, true, false)));
+        var result = validator.validate(List.of(new DeckCardInput("xy1-1", "Card 1", "xy1", 10, "Pokemon", "Basic", false, true, false, 120, 30, 1)));
         assertFalse(result.valid());
         assertTrue(result.errors().stream().anyMatch(e -> e.contains("60")));
     }
@@ -22,12 +22,25 @@ class DeckValidationServiceTest {
     @Test
     void shouldRejectMoreThanOneAceSpec() {
         var cards = List.of(
-            new DeckCardInput("a1", "Ace 1", 1, "Trainer", "ACE SPEC", false, false, true),
-            new DeckCardInput("a2", "Ace 2", 1, "Trainer", "ACE SPEC", false, false, true),
-            new DeckCardInput("b1", "Basic", 58, "Pokemon", "Basic", false, true, false)
+            new DeckCardInput("xy1-1", "Ace 1", "xy1", 1, "Trainer", "ACE SPEC", false, false, true, null, null, null),
+            new DeckCardInput("xy1-2", "Ace 2", "xy1", 1, "Trainer", "ACE SPEC", false, false, true, null, null, null),
+            new DeckCardInput("xy1-3", "Basic", "xy1", 58, "Pokemon", "Basic", false, true, false, 120, 30, 1)
         );
         var result = validator.validate(cards);
         assertFalse(result.valid());
         assertTrue(result.errors().stream().anyMatch(e -> e.contains("AS TÁCTICO")));
+    }
+
+    @Test
+    void shouldRejectCardsOutsideXy1() {
+        var cards = List.of(
+            new DeckCardInput("bw1-1", "Wrong Set", "bw1", 4, "Pokemon", "Basic", false, true, false, 120, 30, 1),
+            new DeckCardInput("xy1-2", "Basic", "xy1", 56, "Pokemon", "Basic", false, true, false, 120, 30, 1)
+        );
+
+        var result = validator.validate(cards);
+
+        assertFalse(result.valid());
+        assertTrue(result.errors().stream().anyMatch(e -> e.contains("xy1")));
     }
 }

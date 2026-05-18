@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClient;
 
 @Component
@@ -19,11 +20,15 @@ public class HttpRealtimeObserver implements GameEventObserver {
 
     @Override
     public void onEvent(@NonNull GameEvent event) {
-        restClient.post()
-            .uri("/internal/events")
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(event)
-            .retrieve()
-            .toBodilessEntity();
+        try {
+            restClient.post()
+                .uri("/internal/events")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(event)
+                .retrieve()
+                .toBodilessEntity();
+        } catch (RestClientException ignored) {
+            // Realtime is best-effort: a gameplay action must not fail because the broadcaster is unavailable.
+        }
     }
 }

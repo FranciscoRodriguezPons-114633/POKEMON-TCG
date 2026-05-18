@@ -40,7 +40,10 @@ public class TurnActionValidator {
                 require(!activeHas(game, StatusCondition.ASLEEP), "Un Pokemon Dormido no puede atacar");
                 require(!activeHas(game, StatusCondition.PARALYZED), "Un Pokemon Paralizado no puede atacar");
             }
-            case END_TURN -> require(phase == TurnPhase.BETWEEN_TURNS, "END_TURN solo en BETWEEN_TURNS");
+            case END_TURN -> require(
+                phase == TurnPhase.MAIN || phase == TurnPhase.ATTACK || phase == TurnPhase.BETWEEN_TURNS,
+                "END_TURN solo en MAIN, ATTACK o BETWEEN_TURNS"
+            );
             case TAKE_PRIZE -> require(phase == TurnPhase.BETWEEN_TURNS, "TAKE_PRIZE solo en BETWEEN_TURNS");
             case APPLY_SPECIAL_CONDITION -> require(phase == TurnPhase.ATTACK || phase == TurnPhase.BETWEEN_TURNS,
                 "APPLY_SPECIAL_CONDITION solo en ATTACK o BETWEEN_TURNS");

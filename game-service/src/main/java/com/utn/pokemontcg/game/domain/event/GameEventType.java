@@ -1,0 +1,21 @@
+package com.utn.pokemontcg.game.domain.event;
+
+public enum GameEventType {
+    GAME_CREATED,
+    PLAYER_JOINED,
+    GAME_SETUP,
+    SETUP_COMPLETED,
+    TURN_STARTED,
+    TURN_PHASE_CHANGED,
+    CARD_DRAWN,
+    ENERGY_ATTACHED,
+    SUPPORTER_PLAYED,
+    RETREAT_DECLARED,
+    ATTACK_RESOLVED,
+    KO,
+    PRIZE_TAKEN,
+    STATUS_APPLIED,
+    BETWEEN_TURNS_RESOLVED,
+    GAME_FINISHED,
+    STATE_SYNCED
+}

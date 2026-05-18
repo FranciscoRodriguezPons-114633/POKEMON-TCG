@@ -35,6 +35,7 @@ public class JpaGameStateRepository implements GameStateRepository {
     public GameAggregate save(GameAggregate game) {
         GameSnapshotEntity entity = new GameSnapshotEntity();
         entity.setGameId(game.id());
+        entity.setVersion(snapshots.countByGameId(game.id()) + 1);
         entity.setPayload(serialize(game));
         entity.setUpdatedAt(Instant.now());
         snapshots.save(entity);
@@ -43,7 +44,7 @@ public class JpaGameStateRepository implements GameStateRepository {
 
     @Override
     public Optional<GameAggregate> findById(UUID gameId) {
-        return snapshots.findById(gameId).map(e -> deserialize(e.getPayload()));
+        return latestSnapshot(gameId);
     }
 
     @Override
@@ -62,7 +63,7 @@ public class JpaGameStateRepository implements GameStateRepository {
 
     @Override
     public Optional<GameAggregate> latestSnapshot(UUID gameId) {
-        return findById(gameId);
+        return snapshots.findTopByGameIdOrderByVersionDesc(gameId).map(e -> deserialize(e.getPayload()));
     }
 
     private String serialize(GameAggregate game) {

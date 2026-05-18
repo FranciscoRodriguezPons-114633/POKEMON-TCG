@@ -13,13 +13,13 @@ public class GameActionLogEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private UUID gameId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false, columnDefinition = "TEXT")
     private String entry;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
     public Long getId() { return id; }

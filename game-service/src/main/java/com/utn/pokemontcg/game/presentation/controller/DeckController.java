@@ -26,18 +26,23 @@ public class DeckController {
     }
 
     @PutMapping("/{deckId}")
-    public ResponseEntity<DeckResponse> update(@PathVariable UUID deckId, @Valid @RequestBody DeckUpsertRequest request) {
+    public ResponseEntity<DeckResponse> update(@PathVariable("deckId") UUID deckId, @Valid @RequestBody DeckUpsertRequest request) {
         return ResponseEntity.ok(deckService.update(deckId, request));
     }
 
+    @GetMapping("/{deckId}")
+    public ResponseEntity<DeckResponse> get(@PathVariable("deckId") UUID deckId) {
+        return ResponseEntity.ok(deckService.get(deckId));
+    }
+
     @DeleteMapping("/{deckId}")
-    public ResponseEntity<Void> delete(@PathVariable UUID deckId) {
+    public ResponseEntity<Void> delete(@PathVariable("deckId") UUID deckId) {
         deckService.delete(deckId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping
-    public ResponseEntity<List<DeckResponse>> listByPlayer(@RequestParam UUID playerId) {
+    public ResponseEntity<List<DeckResponse>> listByPlayer(@RequestParam("playerId") UUID playerId) {
         return ResponseEntity.ok(deckService.listByPlayer(playerId));
     }
 }

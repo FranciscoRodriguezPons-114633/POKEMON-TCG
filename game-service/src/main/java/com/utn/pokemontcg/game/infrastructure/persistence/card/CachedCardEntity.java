@@ -1,30 +1,25 @@
-package com.utn.pokemontcg.game.infrastructure.persistence.deck;
+package com.utn.pokemontcg.game.infrastructure.persistence.card;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+import java.time.Instant;
 
 @Entity
-@Table(name = "deck_cards")
-public class DeckCardEntity {
+@Table(name = "cached_cards")
+public class CachedCardEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "deck_id")
-    private DeckEntity deck;
-
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private String cardId;
 
     @Column(nullable = false)
     private String name;
 
     @Column(nullable = false)
-    private String setId = "xy1";
-
-    @Column(nullable = false)
-    private int quantity;
+    private String setId;
 
     @Column(nullable = false)
     private String type;
@@ -50,17 +45,15 @@ public class DeckCardEntity {
     @Column
     private Integer attackRequiredEnergy;
 
-    public Long getId() { return id; }
-    public DeckEntity getDeck() { return deck; }
-    public void setDeck(DeckEntity deck) { this.deck = deck; }
+    @Column(nullable = false)
+    private Instant cachedAt;
+
     public String getCardId() { return cardId; }
     public void setCardId(String cardId) { this.cardId = cardId; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getSetId() { return setId; }
     public void setSetId(String setId) { this.setId = setId; }
-    public int getQuantity() { return quantity; }
-    public void setQuantity(int quantity) { this.quantity = quantity; }
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
     public String getSubtype() { return subtype; }
@@ -77,4 +70,6 @@ public class DeckCardEntity {
     public void setAttackDamage(Integer attackDamage) { this.attackDamage = attackDamage; }
     public Integer getAttackRequiredEnergy() { return attackRequiredEnergy; }
     public void setAttackRequiredEnergy(Integer attackRequiredEnergy) { this.attackRequiredEnergy = attackRequiredEnergy; }
+    public Instant getCachedAt() { return cachedAt; }
+    public void setCachedAt(Instant cachedAt) { this.cachedAt = cachedAt; }
 }

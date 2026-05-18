@@ -15,7 +15,9 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,5 +50,23 @@ class RealtimeControllerTest {
             .andExpect(jsonPath("$.status").value("PUBLISHED"));
 
         verify(eventBroadcastService).broadcast(any(GameEventMessage.class));
+    }
+
+    @Test
+    void shouldReturnPendingEventsForReconnect() throws Exception {
+        UUID gameId = UUID.randomUUID();
+        GameEventMessage message = new GameEventMessage(
+            gameId,
+            "ATTACK_RESOLVED",
+            Map.of("damage", 30),
+            Instant.parse("2026-05-06T18:01:00Z")
+        );
+        when(eventBroadcastService.eventsSince(gameId, Instant.parse("2026-05-06T18:00:00Z")))
+            .thenReturn(java.util.List.of(message));
+
+        mockMvc.perform(get("/internal/events/{gameId}", gameId)
+                .param("since", "2026-05-06T18:00:00Z"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.events[0].type").value("ATTACK_RESOLVED"));
     }
 }
