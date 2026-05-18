@@ -3,6 +3,7 @@ package com.utn.pokemontcg.game;
 import com.utn.pokemontcg.game.application.service.TurnActionValidator;
 import com.utn.pokemontcg.game.domain.model.GameActionType;
 import com.utn.pokemontcg.game.domain.model.GameAggregate;
+import com.utn.pokemontcg.game.domain.model.GameState;
 import com.utn.pokemontcg.game.domain.model.TurnPhase;
 import org.junit.jupiter.api.Test;
 
@@ -17,7 +18,10 @@ class TurnActionValidatorTest {
 
     @Test
     void shouldRejectAttachEnergyOutsideMainPhase() {
-        GameAggregate game = new GameAggregate(UUID.randomUUID());
+        UUID player = UUID.randomUUID();
+        GameAggregate game = new GameAggregate(player);
+        game.setGameState(GameState.ACTIVE);
+        game.setCurrentTurnPlayer(player);
         game.setTurnPhase(TurnPhase.DRAW);
 
         assertThrows(IllegalStateException.class,
@@ -26,7 +30,10 @@ class TurnActionValidatorTest {
 
     @Test
     void shouldAllowAttachEnergyInMainWhenNotUsed() {
-        GameAggregate game = new GameAggregate(UUID.randomUUID());
+        UUID player = UUID.randomUUID();
+        GameAggregate game = new GameAggregate(player);
+        game.setGameState(GameState.ACTIVE);
+        game.setCurrentTurnPlayer(player);
         game.setTurnPhase(TurnPhase.MAIN);
 
         assertDoesNotThrow(() -> validator.validate(game, GameActionType.ATTACH_ENERGY));

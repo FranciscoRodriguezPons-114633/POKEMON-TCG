@@ -1,12 +1,14 @@
 package com.utn.pokemontcg.game.application.service;
 
 import com.utn.pokemontcg.game.application.repository.GameStateRepository;
+import com.utn.pokemontcg.game.domain.chain.AttackContext;
 import com.utn.pokemontcg.game.domain.engine.DamageCalculator;
 import com.utn.pokemontcg.game.domain.engine.RuleValidator;
 import com.utn.pokemontcg.game.domain.engine.StatusEffectManager;
 import com.utn.pokemontcg.game.domain.facade.GameEngineFacade;
 import com.utn.pokemontcg.game.domain.model.GameActionType;
 import com.utn.pokemontcg.game.domain.model.GameAggregate;
+import com.utn.pokemontcg.game.domain.model.GameState;
 import com.utn.pokemontcg.game.domain.model.StatusCondition;
 import com.utn.pokemontcg.game.domain.model.TurnPhase;
 import org.springframework.stereotype.Service;
@@ -73,19 +75,24 @@ public class GameApplicationService {
             throw new IllegalStateException("Two players are required before setup");
         }
 
-        var p1 = setupEngineService.preparePlayer(
+        var p1 = setupEngineService.preparePlayerBoard(
+            game.playerOne(),
             playerOneDeckSize,
             playerOneBasicCount,
-            0
+            0,
+            game
         );
 
-        var p2 = setupEngineService.preparePlayer(
+        var p2 = setupEngineService.preparePlayerBoard(
+            game.playerTwo(),
             playerTwoDeckSize,
             playerTwoBasicCount,
-            p1.mulligans()
+            p1.mulligans(),
+            game
         );
 
-        p1.setHandSize(7 + p2.mulligans());
+        drawOptionalMulliganCards(game, game.playerOne(), p2.mulligans());
+        p1.setHandSize(game.hand().get(game.playerOne()).size());
 
         game.setupByPlayer().put(game.playerOne(), p1);
         game.setupByPlayer().put(game.playerTwo(), p2);
@@ -97,8 +104,6 @@ public class GameApplicationService {
         );
 
         game.setCurrentTurnPlayer(game.firstPlayer());
-
-        initializeBoardState(game, playerOneDeckSize, playerTwoDeckSize);
 
         gameEngineFacade.startSetup(game);
         gameEngineFacade.startActive(game);
@@ -123,10 +128,13 @@ public class GameApplicationService {
         ruleValidator.validate(game, actionType);
 
         switch (actionType) {
-            case DRAW -> gameEngineFacade.advanceTurnPhase(game);
+            case DRAW -> {
+                drawForTurn(game, game.currentTurnPlayer());
+                gameEngineFacade.advanceTurnPhase(game);
+            }
 
             case ATTACH_ENERGY ->
-                game.turnFlags().setEnergyAttached(true);
+                attachEnergyToActive(game, game.currentTurnPlayer());
 
             case PLAY_SUPPORTER ->
                 game.turnFlags().setSupporterPlayed(true);
@@ -136,13 +144,13 @@ public class GameApplicationService {
 
             case ATTACK -> {
                 game.turnFlags().setAttacked(true);
-                gameEngineFacade.resolveAttack(game);
+                AttackContext context = gameEngineFacade.resolveAttack(game);
 
                 UUID attacker = game.currentTurnPlayer();
                 UUID defender = opponentOf(game, attacker);
 
                 int damage = damageCalculator.calculate(
-                    30,
+                    context.damage(),
                     false,
                     false,
                     game.statusByPlayer().getOrDefault(
@@ -151,10 +159,8 @@ public class GameApplicationService {
                     )
                 );
 
-                game.activeHp().put(
-                    defender,
-                    game.activeHp().getOrDefault(defender, 120) - damage
-                );
+                applyDamage(game, defender, damage);
+                applyDamage(game, attacker, context.selfDamage());
 
                 victoryService.applyKnockoutAndPrizes(
                     game,
@@ -196,10 +202,7 @@ public class GameApplicationService {
                 );
 
             case RESOLVE_BETWEEN_TURNS ->
-                statusEffectManager.resolveBetweenTurns(
-                    game,
-                    opponentOf(game, game.currentTurnPlayer())
-                );
+                resolveBetweenTurnsForBothPlayers(game);
         }
 
         victoryService.closeGameIfNeeded(game);
@@ -226,31 +229,6 @@ public class GameApplicationService {
             );
     }
 
-    private void initializeBoardState(
-        GameAggregate game,
-        int p1DeckSize,
-        int p2DeckSize
-    ) {
-        game.prizeCardsRemaining().put(game.playerOne(), 6);
-        game.prizeCardsRemaining().put(game.playerTwo(), 6);
-
-        game.activeHp().put(game.playerOne(), 120);
-        game.activeHp().put(game.playerTwo(), 120);
-
-        game.activePokemonEx().put(game.playerOne(), false);
-        game.activePokemonEx().put(game.playerTwo(), false);
-
-        game.deckCardsRemaining().put(
-            game.playerOne(),
-            Math.max(0, p1DeckSize - 7 - 6)
-        );
-
-        game.deckCardsRemaining().put(
-            game.playerTwo(),
-            Math.max(0, p2DeckSize - 7 - 6)
-        );
-    }
-
     private UUID opponentOf(GameAggregate game, UUID player) {
         if (player == null) {
             return game.playerTwo();
@@ -259,5 +237,56 @@ public class GameApplicationService {
         return player.equals(game.playerOne())
             ? game.playerTwo()
             : game.playerOne();
+    }
+
+    private void drawOptionalMulliganCards(GameAggregate game, UUID player, int cards) {
+        for (int i = 0; i < cards; i++) {
+            drawOne(game, player);
+        }
+    }
+
+    private void drawForTurn(GameAggregate game, UUID player) {
+        if (game.firstTurn() && player.equals(game.firstPlayer())) {
+            return;
+        }
+        if (!drawOne(game, player)) {
+            game.setWinner(opponentOf(game, player));
+            game.setGameState(GameState.FINISHED);
+        }
+    }
+
+    private boolean drawOne(GameAggregate game, UUID player) {
+        var deck = game.deck().get(player);
+        if (deck == null || deck.isEmpty()) {
+            return false;
+        }
+        game.hand().get(player).add(deck.remove(0));
+        game.deckCardsRemaining().put(player, deck.size());
+        return true;
+    }
+
+    private void attachEnergyToActive(GameAggregate game, UUID player) {
+        game.activeAttachedEnergy().put(
+            player,
+            game.activeAttachedEnergy().getOrDefault(player, 0) + 1
+        );
+        game.turnFlags().setEnergyAttached(true);
+    }
+
+    private void applyDamage(GameAggregate game, UUID player, int damage) {
+        if (player == null || damage <= 0) {
+            return;
+        }
+        int counters = damage / 10;
+        int newCounters = game.activeDamageCounters().getOrDefault(player, 0) + counters;
+        game.activeDamageCounters().put(player, newCounters);
+        game.activeHp().put(player, Math.max(0, 120 - (newCounters * 10)));
+    }
+
+    private void resolveBetweenTurnsForBothPlayers(GameAggregate game) {
+        statusEffectManager.resolveBetweenTurns(game, game.playerOne());
+        statusEffectManager.resolveBetweenTurns(game, game.playerTwo());
+        victoryService.applyKnockoutAndPrizes(game, game.playerOne(), game.playerTwo());
+        victoryService.applyKnockoutAndPrizes(game, game.playerTwo(), game.playerOne());
     }
 }

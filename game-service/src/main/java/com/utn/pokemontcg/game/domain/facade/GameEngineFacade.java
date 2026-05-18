@@ -39,7 +39,7 @@ public class GameEngineFacade {
         eventPublisher.publish(GameEvent.of(game.id(), "TURN_PHASE_CHANGED", Map.of("phase", game.turnPhase().name())));
     }
 
-    public void resolveAttack(GameAggregate game) {
+    public AttackContext resolveAttack(GameAggregate game) {
         AttackResolutionPipeline pipeline = new AttackResolutionPipeline(List.of(
             new EnergyValidationStep(),
             new ConfusionCheckStep(),
@@ -56,16 +56,20 @@ public class GameEngineFacade {
             "auditTrail", context.auditTrail()
         )));
         game.setTurnPhase(com.utn.pokemontcg.game.domain.model.TurnPhase.BETWEEN_TURNS);
+        return context;
     }
 
     private AttackContext buildDefaultAttackContext(GameAggregate game) {
         AttackContext context = new AttackContext(game);
-        context.setRequiredEnergy(1);
-        context.setAttachedEnergy(1);
-        context.setConfused(false);
-        context.setBaseDamage(30);
-        context.setWeaknessMultiplier(1);
-        context.setResistanceReduction(0);
+        var attacker = game.currentTurnPlayer();
+        context.setRequiredEnergy(game.activeAttackRequiredEnergy());
+        context.setAttachedEnergy(game.activeAttachedEnergy().getOrDefault(attacker, 0));
+        context.setConfused(game.statusByPlayer()
+            .getOrDefault(attacker, java.util.EnumSet.noneOf(com.utn.pokemontcg.game.domain.model.StatusCondition.class))
+            .contains(com.utn.pokemontcg.game.domain.model.StatusCondition.CONFUSED));
+        context.setBaseDamage(game.activeAttackBaseDamage());
+        context.setWeaknessMultiplier(game.defendingPokemonWeakToAttack() ? 2 : 1);
+        context.setResistanceReduction(game.defendingPokemonResistsAttack() ? 20 : 0);
         return context;
     }
 }

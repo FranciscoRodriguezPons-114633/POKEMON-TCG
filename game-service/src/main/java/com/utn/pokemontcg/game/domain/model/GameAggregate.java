@@ -1,8 +1,10 @@
 package com.utn.pokemontcg.game.domain.model;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -28,10 +30,23 @@ public class GameAggregate {
 
     private final Map<UUID, Integer> prizeCardsRemaining = new HashMap<>();
     private final Map<UUID, Integer> activeHp = new HashMap<>();
+    private final Map<UUID, Integer> activeDamageCounters = new HashMap<>();
+    private final Map<UUID, Integer> activeAttachedEnergy = new HashMap<>();
     private final Map<UUID, Integer> deckCardsRemaining = new HashMap<>();
     private final Map<UUID, EnumSet<StatusCondition>> statusByPlayer = new HashMap<>();
 
     private final Map<UUID, Boolean> activePokemonEx = new HashMap<>();
+    private final Map<UUID, String> activePokemon = new HashMap<>();
+    private final Map<UUID, List<String>> bench = new HashMap<>();
+    private final Map<UUID, List<String>> hand = new HashMap<>();
+    private final Map<UUID, List<String>> deck = new HashMap<>();
+    private final Map<UUID, List<String>> prizeCards = new HashMap<>();
+    private final Map<UUID, List<String>> discardPile = new HashMap<>();
+
+    private int activeAttackBaseDamage = 30;
+    private int activeAttackRequiredEnergy = 1;
+    private boolean defendingPokemonWeakToAttack;
+    private boolean defendingPokemonResistsAttack;
 
     private UUID winner;
 
@@ -81,11 +96,35 @@ public class GameAggregate {
 
     public Map<UUID, Integer> activeHp() { return activeHp; }
 
+    public Map<UUID, Integer> activeDamageCounters() { return activeDamageCounters; }
+
+    public Map<UUID, Integer> activeAttachedEnergy() { return activeAttachedEnergy; }
+
     public Map<UUID, Integer> deckCardsRemaining() { return deckCardsRemaining; }
 
     public Map<UUID, EnumSet<StatusCondition>> statusByPlayer() { return statusByPlayer; }
 
     public Map<UUID, Boolean> activePokemonEx() { return activePokemonEx; }
+
+    public Map<UUID, String> activePokemon() { return activePokemon; }
+
+    public Map<UUID, List<String>> bench() { return bench; }
+
+    public Map<UUID, List<String>> hand() { return hand; }
+
+    public Map<UUID, List<String>> deck() { return deck; }
+
+    public Map<UUID, List<String>> prizeCards() { return prizeCards; }
+
+    public Map<UUID, List<String>> discardPile() { return discardPile; }
+
+    public int activeAttackBaseDamage() { return activeAttackBaseDamage; }
+
+    public int activeAttackRequiredEnergy() { return activeAttackRequiredEnergy; }
+
+    public boolean defendingPokemonWeakToAttack() { return defendingPokemonWeakToAttack; }
+
+    public boolean defendingPokemonResistsAttack() { return defendingPokemonResistsAttack; }
 
     public UUID winner() { return winner; }
 
@@ -131,6 +170,44 @@ public class GameAggregate {
     public void setWinner(UUID winner) {
         this.winner = winner;
         touch();
+    }
+
+    public void setActiveAttackBaseDamage(int activeAttackBaseDamage) {
+        this.activeAttackBaseDamage = activeAttackBaseDamage;
+        touch();
+    }
+
+    public void setActiveAttackRequiredEnergy(int activeAttackRequiredEnergy) {
+        this.activeAttackRequiredEnergy = activeAttackRequiredEnergy;
+        touch();
+    }
+
+    public void setDefendingPokemonWeakToAttack(boolean defendingPokemonWeakToAttack) {
+        this.defendingPokemonWeakToAttack = defendingPokemonWeakToAttack;
+        touch();
+    }
+
+    public void setDefendingPokemonResistsAttack(boolean defendingPokemonResistsAttack) {
+        this.defendingPokemonResistsAttack = defendingPokemonResistsAttack;
+        touch();
+    }
+
+    public void initializeZonesFor(UUID player, List<String> orderedDeck) {
+        deck.put(player, new ArrayList<>(orderedDeck));
+        hand.put(player, new ArrayList<>());
+        prizeCards.put(player, new ArrayList<>());
+        discardPile.put(player, new ArrayList<>());
+        bench.put(player, new ArrayList<>());
+        activePokemon.remove(player);
+        activeDamageCounters.put(player, 0);
+        activeAttachedEnergy.put(player, 0);
+        deckCardsRemaining.put(player, orderedDeck.size());
+        touch();
+    }
+
+    public boolean hasPokemonInPlay(UUID player) {
+        return activePokemon.get(player) != null
+            || !bench.getOrDefault(player, List.of()).isEmpty();
     }
 
     // ========================

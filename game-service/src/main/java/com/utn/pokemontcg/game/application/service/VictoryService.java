@@ -4,6 +4,7 @@ import com.utn.pokemontcg.game.domain.model.GameAggregate;
 import com.utn.pokemontcg.game.domain.model.GameState;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -13,17 +14,14 @@ public class VictoryService {
         if (attacker == null || defender == null) return;
 
         if (game.activeHp().getOrDefault(defender, 1) > 0) return;
+        if (game.activePokemon().get(defender) == null) return;
 
         int prizeLoss = game.activePokemonEx().getOrDefault(defender, false) ? 2 : 1;
 
-        int currentPrizes = game.prizeCardsRemaining().getOrDefault(attacker, 6);
+        discardKnockedOutActive(game, defender);
+        takePrizeCards(game, attacker, prizeLoss);
 
-        game.prizeCardsRemaining().put(attacker, Math.max(0, currentPrizes - prizeLoss));
-
-        // Reset knocked-out Pokémon state
-        game.activeHp().put(defender, 120);
-        game.activePokemonEx().put(defender, false);
-        game.statusByPlayer().remove(defender);
+        promoteFromBenchIfPossible(game, defender);
     }
 
     public UUID checkWinner(GameAggregate game) {
@@ -34,17 +32,17 @@ public class VictoryService {
 
         boolean p1PrizeWin = game.prizeCardsRemaining().getOrDefault(p1, 6) <= 0;
         boolean p2PrizeWin = game.prizeCardsRemaining().getOrDefault(p2, 6) <= 0;
-        boolean p1DeckOut = game.deckCardsRemaining().getOrDefault(p1, 1) <= 0;
-        boolean p2DeckOut = game.deckCardsRemaining().getOrDefault(p2, 1) <= 0;
+        boolean p1NoPokemon = !game.hasPokemonInPlay(p1);
+        boolean p2NoPokemon = !game.hasPokemonInPlay(p2);
 
         // Sudden death if both players meet win conditions simultaneously
-        if ((p1PrizeWin && p2PrizeWin) || (p1DeckOut && p2DeckOut)) {
+        if ((p1PrizeWin && p2PrizeWin) || (p1NoPokemon && p2NoPokemon)) {
             startSuddenDeath(game);
             return null;
         }
 
-        if (p1PrizeWin || p2DeckOut) return p1;
-        if (p2PrizeWin || p1DeckOut) return p2;
+        if (p1PrizeWin || p2NoPokemon) return p1;
+        if (p2PrizeWin || p1NoPokemon) return p2;
 
         return null;
     }
@@ -62,5 +60,41 @@ public class VictoryService {
         game.prizeCardsRemaining().put(game.playerOne(), 1);
         game.prizeCardsRemaining().put(game.playerTwo(), 1);
         game.setWinner(null);
+    }
+
+    private void discardKnockedOutActive(GameAggregate game, UUID player) {
+        String active = game.activePokemon().remove(player);
+        if (active != null) {
+            game.discardPile().computeIfAbsent(player, ignored -> new java.util.ArrayList<>()).add(active);
+        }
+        game.activeAttachedEnergy().put(player, 0);
+        game.activeDamageCounters().put(player, 0);
+        game.activeHp().put(player, 0);
+        game.activePokemonEx().put(player, false);
+        game.statusByPlayer().remove(player);
+    }
+
+    private void takePrizeCards(GameAggregate game, UUID player, int amount) {
+        List<String> prizes = game.prizeCards().getOrDefault(player, List.of());
+        List<String> hand = game.hand().computeIfAbsent(player, ignored -> new java.util.ArrayList<>());
+        int taken = 0;
+        while (taken < amount && !prizes.isEmpty()) {
+            hand.add(prizes.remove(0));
+            taken++;
+        }
+        game.prizeCardsRemaining().put(player, prizes.size());
+    }
+
+    private void promoteFromBenchIfPossible(GameAggregate game, UUID player) {
+        List<String> bench = game.bench().getOrDefault(player, List.of());
+        if (bench.isEmpty()) {
+            return;
+        }
+        String promoted = bench.remove(0);
+        game.activePokemon().put(player, promoted);
+        game.activeHp().put(player, 120);
+        game.activeDamageCounters().put(player, 0);
+        game.activeAttachedEnergy().put(player, 0);
+        game.activePokemonEx().put(player, promoted.endsWith("-EX"));
     }
 }
