@@ -31,12 +31,12 @@ public class GameController {
 
     @PostMapping
     public ResponseEntity<GameStateResponse> create(@Valid @RequestBody CreateGameRequest request) {
-        return ResponseEntity.ok(toResponse(gameService.create(request.playerId())));
+        return ResponseEntity.ok(toResponse(gameService.create(request.playerId(), request.deckId())));
     }
 
     @PostMapping("/{gameId}/join")
     public ResponseEntity<GameStateResponse> join(@PathVariable UUID gameId, @Valid @RequestBody JoinGameRequest request) {
-        return ResponseEntity.ok(toResponse(gameService.join(gameId, request.playerId())));
+        return ResponseEntity.ok(toResponse(gameService.join(gameId, request.playerId(), request.deckId())));
     }
 
     @PostMapping("/{gameId}/setup")
@@ -44,7 +44,8 @@ public class GameController {
         GameAggregate game = gameService.runInitialSetup(
             gameId,
             request.playerOneDeckSize(), request.playerOneBasicCount(),
-            request.playerTwoDeckSize(), request.playerTwoBasicCount()
+            request.playerTwoDeckSize(), request.playerTwoBasicCount(),
+            request.playerOneDeckId(), request.playerTwoDeckId()
         );
         return ResponseEntity.ok(toResponse(game));
     }

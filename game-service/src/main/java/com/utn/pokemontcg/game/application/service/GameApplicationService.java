@@ -1,6 +1,7 @@
 package com.utn.pokemontcg.game.application.service;
 
 import com.utn.pokemontcg.game.application.repository.GameStateRepository;
+import com.utn.pokemontcg.game.application.service.deck.DeckService;
 import com.utn.pokemontcg.game.domain.chain.AttackContext;
 import com.utn.pokemontcg.game.domain.engine.DamageCalculator;
 import com.utn.pokemontcg.game.domain.engine.RuleValidator;
@@ -9,15 +10,23 @@ import com.utn.pokemontcg.game.domain.event.GameEventType;
 import com.utn.pokemontcg.game.domain.facade.GameEngineFacade;
 import com.utn.pokemontcg.game.domain.model.GameActionType;
 import com.utn.pokemontcg.game.domain.model.GameAggregate;
+import com.utn.pokemontcg.game.domain.model.GameCard;
 import com.utn.pokemontcg.game.domain.model.GameState;
 import com.utn.pokemontcg.game.domain.model.StatusCondition;
 import com.utn.pokemontcg.game.domain.model.TurnPhase;
+import com.utn.pokemontcg.game.presentation.dto.deck.DeckCardInput;
+import com.utn.pokemontcg.game.presentation.dto.deck.DeckResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -31,6 +40,7 @@ public class GameApplicationService {
     private final RuleValidator ruleValidator;
     private final DamageCalculator damageCalculator;
     private final StatusEffectManager statusEffectManager;
+    private final DeckService deckService;
 
     public GameApplicationService(
         GameStateRepository gameStateRepository,
@@ -42,6 +52,31 @@ public class GameApplicationService {
         DamageCalculator damageCalculator,
         StatusEffectManager statusEffectManager
     ) {
+        this(
+            gameStateRepository,
+            gameEngineFacade,
+            setupEngineService,
+            turnActionValidator,
+            victoryService,
+            ruleValidator,
+            damageCalculator,
+            statusEffectManager,
+            null
+        );
+    }
+
+    @Autowired
+    public GameApplicationService(
+        GameStateRepository gameStateRepository,
+        GameEngineFacade gameEngineFacade,
+        SetupEngineService setupEngineService,
+        TurnActionValidator turnActionValidator,
+        VictoryService victoryService,
+        RuleValidator ruleValidator,
+        DamageCalculator damageCalculator,
+        StatusEffectManager statusEffectManager,
+        DeckService deckService
+    ) {
         this.gameStateRepository = gameStateRepository;
         this.gameEngineFacade = gameEngineFacade;
         this.setupEngineService = setupEngineService;
@@ -50,20 +85,35 @@ public class GameApplicationService {
         this.ruleValidator = ruleValidator;
         this.damageCalculator = damageCalculator;
         this.statusEffectManager = statusEffectManager;
+        this.deckService = deckService;
     }
 
     public GameAggregate create(UUID playerId) {
+        return create(playerId, null);
+    }
+
+    public GameAggregate create(UUID playerId, UUID deckId) {
         GameAggregate game = new GameAggregate(playerId);
+        if (deckId != null) {
+            game.deckIdsByPlayer().put(playerId, deckId);
+        }
         GameAggregate saved = gameStateRepository.save(game);
-        gameEngineFacade.publish(saved, GameEventType.GAME_CREATED, Map.of("playerOne", playerId));
+        gameEngineFacade.publish(saved, GameEventType.GAME_CREATED, eventPayloadWithDeck("playerOne", playerId, deckId));
         return saved;
     }
 
     public GameAggregate join(UUID gameId, UUID playerId) {
+        return join(gameId, playerId, null);
+    }
+
+    public GameAggregate join(UUID gameId, UUID playerId, UUID deckId) {
         GameAggregate game = get(gameId);
         game.setPlayerTwo(playerId);
+        if (deckId != null) {
+            game.deckIdsByPlayer().put(playerId, deckId);
+        }
         GameAggregate saved = gameStateRepository.save(game);
-        gameEngineFacade.publish(saved, GameEventType.PLAYER_JOINED, Map.of("playerTwo", playerId));
+        gameEngineFacade.publish(saved, GameEventType.PLAYER_JOINED, eventPayloadWithDeck("playerTwo", playerId, deckId));
         return saved;
     }
 
@@ -74,27 +124,66 @@ public class GameApplicationService {
         int playerTwoDeckSize,
         int playerTwoBasicCount
     ) {
+        return runInitialSetup(
+            gameId,
+            playerOneDeckSize,
+            playerOneBasicCount,
+            playerTwoDeckSize,
+            playerTwoBasicCount,
+            null,
+            null
+        );
+    }
+
+    public GameAggregate runInitialSetup(
+        UUID gameId,
+        Integer playerOneDeckSize,
+        Integer playerOneBasicCount,
+        Integer playerTwoDeckSize,
+        Integer playerTwoBasicCount,
+        UUID playerOneDeckId,
+        UUID playerTwoDeckId
+    ) {
         GameAggregate game = get(gameId);
 
         if (game.playerTwo() == null) {
             throw new IllegalStateException("Two players are required before setup");
         }
 
-        var p1 = setupEngineService.preparePlayerBoard(
-            game.playerOne(),
-            playerOneDeckSize,
-            playerOneBasicCount,
-            0,
-            game
-        );
+        registerRequestedDeckIds(game, playerOneDeckId, playerTwoDeckId);
 
-        var p2 = setupEngineService.preparePlayerBoard(
-            game.playerTwo(),
-            playerTwoDeckSize,
-            playerTwoBasicCount,
-            p1.mulligans(),
-            game
-        );
+        UUID resolvedPlayerOneDeckId = game.deckIdsByPlayer().get(game.playerOne());
+        UUID resolvedPlayerTwoDeckId = game.deckIdsByPlayer().get(game.playerTwo());
+
+        var p1 = hasBothDecks(resolvedPlayerOneDeckId, resolvedPlayerTwoDeckId)
+            ? setupEngineService.preparePlayerBoard(
+                game.playerOne(),
+                realDeckCardsFor(game.playerOne(), resolvedPlayerOneDeckId),
+                0,
+                game
+            )
+            : setupEngineService.preparePlayerBoard(
+                game.playerOne(),
+                require(playerOneDeckSize, "playerOneDeckSize"),
+                require(playerOneBasicCount, "playerOneBasicCount"),
+                0,
+                game
+            );
+
+        var p2 = hasBothDecks(resolvedPlayerOneDeckId, resolvedPlayerTwoDeckId)
+            ? setupEngineService.preparePlayerBoard(
+                game.playerTwo(),
+                realDeckCardsFor(game.playerTwo(), resolvedPlayerTwoDeckId),
+                p1.mulligans(),
+                game
+            )
+            : setupEngineService.preparePlayerBoard(
+                game.playerTwo(),
+                require(playerTwoDeckSize, "playerTwoDeckSize"),
+                require(playerTwoBasicCount, "playerTwoBasicCount"),
+                p1.mulligans(),
+                game
+            );
 
         drawOptionalMulliganCards(game, game.playerOne(), p2.mulligans());
         p1.setHandSize(game.hand().get(game.playerOne()).size());
@@ -193,13 +282,12 @@ public class GameApplicationService {
                 applyDamage(game, defender, damage);
                 applyDamage(game, attacker, context.selfDamage());
 
-                int prizesBeforeKo = game.prizeCardsRemaining().getOrDefault(attacker, 6);
-                victoryService.applyKnockoutAndPrizes(
+                VictoryService.KnockoutResult knockout = victoryService.applyKnockoutAndPrizes(
                     game,
                     attacker,
                     defender
                 );
-                publishKoAndPrizeIfNeeded(game, attacker, defender, prizesBeforeKo);
+                publishKnockoutResult(game, knockout);
             }
 
             case END_TURN -> {
@@ -241,7 +329,7 @@ public class GameApplicationService {
                     "playerOneHp", game.activeHp().getOrDefault(game.playerOne(), 0),
                     "playerTwoHp", game.activeHp().getOrDefault(game.playerTwo(), 0)
                 ));
-                victoryService.closeGameIfNeeded(game);
+                closeGameAndPublishIfNeeded(game);
                 if (game.gameState() != GameState.FINISHED) {
                     gameEngineFacade.advanceTurnPhase(game);
                     startNextTurn(game);
@@ -249,10 +337,7 @@ public class GameApplicationService {
             }
         }
 
-        victoryService.closeGameIfNeeded(game);
-        if (game.gameState() == GameState.FINISHED) {
-            gameEngineFacade.publish(game, GameEventType.GAME_FINISHED, Map.of("winner", game.winner()));
-        }
+        closeGameAndPublishIfNeeded(game);
 
         gameStateRepository.appendActionLog(
             game.id(),
@@ -333,8 +418,8 @@ public class GameApplicationService {
     private void resolveBetweenTurnsForBothPlayers(GameAggregate game) {
         statusEffectManager.resolveBetweenTurns(game, game.playerOne());
         statusEffectManager.resolveBetweenTurns(game, game.playerTwo());
-        victoryService.applyKnockoutAndPrizes(game, game.playerOne(), game.playerTwo());
-        victoryService.applyKnockoutAndPrizes(game, game.playerTwo(), game.playerOne());
+        publishKnockoutResult(game, victoryService.applyKnockoutAndPrizes(game, game.playerOne(), game.playerTwo()));
+        publishKnockoutResult(game, victoryService.applyKnockoutAndPrizes(game, game.playerTwo(), game.playerOne()));
     }
 
     private void startNextTurn(GameAggregate game) {
@@ -352,21 +437,132 @@ public class GameApplicationService {
         ));
     }
 
-    private void publishKoAndPrizeIfNeeded(GameAggregate game, UUID attacker, UUID defender, int prizesBeforeKo) {
-        if (defender == null) {
+    private void publishKnockoutResult(GameAggregate game, VictoryService.KnockoutResult knockout) {
+        if (knockout == null || !knockout.knockedOut()) {
             return;
         }
-        int prizesAfterKo = game.prizeCardsRemaining().getOrDefault(attacker, 6);
-        if (prizesAfterKo >= prizesBeforeKo) {
-            return;
+        Map<String, Object> koPayload = new HashMap<>();
+        koPayload.put("attacker", knockout.attacker());
+        koPayload.put("defender", knockout.defender());
+        koPayload.put("knockedOutCard", knockout.knockedOutCard());
+        koPayload.put("promotedCard", knockout.promotedCard());
+        koPayload.put("defenderHasNoPokemon", knockout.defenderHasNoPokemon());
+        gameEngineFacade.publish(game, GameEventType.KO, koPayload);
+
+        Map<String, Object> prizePayload = new HashMap<>();
+        prizePayload.put("player", knockout.attacker());
+        prizePayload.put("prizesTaken", knockout.prizesTaken());
+        prizePayload.put("prizeCardsRemaining", knockout.prizeCardsRemaining());
+        gameEngineFacade.publish(game, GameEventType.PRIZE_TAKEN, prizePayload);
+    }
+
+    private void closeGameAndPublishIfNeeded(GameAggregate game) {
+        GameState previousState = game.gameState();
+        UUID previousWinner = game.winner();
+        victoryService.closeGameIfNeeded(game);
+        if (previousState != GameState.FINISHED && game.gameState() == GameState.FINISHED) {
+            gameEngineFacade.publish(game, GameEventType.GAME_FINISHED, Map.of(
+                "winner", game.winner(),
+                "reason", finishReason(game, previousWinner)
+            ));
         }
-        gameEngineFacade.publish(game, GameEventType.KO, Map.of(
-            "attacker", attacker,
-            "defender", defender
-        ));
-        gameEngineFacade.publish(game, GameEventType.PRIZE_TAKEN, Map.of(
-            "player", attacker,
-            "prizeCardsRemaining", prizesAfterKo
-        ));
+    }
+
+    private String finishReason(GameAggregate game, UUID previousWinner) {
+        if (game.winner() == null || game.winner().equals(previousWinner)) {
+            return "UNKNOWN";
+        }
+        UUID loser = game.winner().equals(game.playerOne()) ? game.playerTwo() : game.playerOne();
+        if (game.prizeCardsRemaining().getOrDefault(game.winner(), 1) <= 0) {
+            return "PRIZES";
+        }
+        if (!game.hasPokemonInPlay(loser)) {
+            return "KO_TOTAL";
+        }
+        if (game.deck().getOrDefault(loser, List.of()).isEmpty()) {
+            return "DECK_OUT";
+        }
+        return "UNKNOWN";
+    }
+
+    private Map<String, Object> eventPayloadWithDeck(String playerKey, UUID playerId, UUID deckId) {
+        return deckId == null
+            ? Map.of(playerKey, playerId)
+            : Map.of(playerKey, playerId, "deckId", deckId);
+    }
+
+    private void registerRequestedDeckIds(GameAggregate game, UUID playerOneDeckId, UUID playerTwoDeckId) {
+        if (playerOneDeckId != null) {
+            game.deckIdsByPlayer().put(game.playerOne(), playerOneDeckId);
+        }
+        if (playerTwoDeckId != null) {
+            game.deckIdsByPlayer().put(game.playerTwo(), playerTwoDeckId);
+        }
+    }
+
+    private boolean hasBothDecks(UUID playerOneDeckId, UUID playerTwoDeckId) {
+        return playerOneDeckId != null && playerTwoDeckId != null;
+    }
+
+    private int require(Integer value, String fieldName) {
+        if (value == null) {
+            throw new IllegalArgumentException(
+                "Para setup manual se requiere " + fieldName + ". Para setup real enviá deckId de ambos jugadores."
+            );
+        }
+        return value;
+    }
+
+    private List<GameCard> realDeckCardsFor(UUID playerId, UUID deckId) {
+        if (deckService == null) {
+            throw new IllegalStateException("DeckService is required for setup with real decks");
+        }
+        DeckResponse deck = deckService.get(deckId);
+        if (!playerId.equals(deck.playerId())) {
+            throw new IllegalArgumentException("El mazo " + deckId + " no pertenece al jugador " + playerId);
+        }
+        if (!deck.validation().valid()) {
+            throw new IllegalArgumentException(String.join(" ", deck.validation().errors()));
+        }
+
+        List<GameCard> cards = new ArrayList<>();
+        int copyIndex = 0;
+        for (DeckCardInput input : deck.cards()) {
+            for (int i = 0; i < input.quantity(); i++) {
+                cards.add(toGameCard(playerId, input, copyIndex++));
+            }
+        }
+        return cards;
+    }
+
+    private GameCard toGameCard(UUID playerId, DeckCardInput input, int copyIndex) {
+        return new GameCard(
+            input.cardId() + ":" + playerId + ":" + copyIndex,
+            input.name(),
+            input.type(),
+            subtypesOf(input),
+            input.hp() == null ? 0 : input.hp(),
+            input.attackDamage() == null ? 0 : input.attackDamage(),
+            input.attackRequiredEnergy() == null ? 0 : input.attackRequiredEnergy()
+        );
+    }
+
+    private Set<String> subtypesOf(DeckCardInput input) {
+        Set<String> subtypes = new LinkedHashSet<>();
+        if (input.subtype() != null && !input.subtype().isBlank()) {
+            for (String subtype : input.subtype().split(",")) {
+                String trimmed = subtype.trim();
+                if (!trimmed.isEmpty()) {
+                    subtypes.add(trimmed);
+                }
+            }
+        }
+        if (input.basicPokemon() || input.basicEnergy()) {
+            subtypes.add("Basic");
+        }
+        if (input.aceSpec()) {
+            subtypes.add("ACE SPEC");
+        }
+        return subtypes;
     }
 }
