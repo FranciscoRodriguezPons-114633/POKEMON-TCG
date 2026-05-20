@@ -1,0 +1,82 @@
+<div class="catalog-shell">
+  <div class="filter-bar">
+    <input
+      #nameInput
+      class="name-input"
+      placeholder="Search Pokémon name…"
+      (input)="onNameInput(nameInput.value)"
+      [value]="nameFilter()"
+    />
+
+    <select #supertypeSel class="supertype-select" (change)="onSupertypeChange(supertypeSel.value)">
+      <option value="">All Types</option>
+      <option value="Pokémon">Pokémon</option>
+      <option value="Energy">Energy</option>
+      <option value="Trainer">Trainer</option>
+    </select>
+
+    <select #energySel class="energy-select" (change)="onEnergyChange(energySel.value)">
+      <option value="">All Energies</option>
+      <option>Colorless</option>
+      <option>Darkness</option>
+      <option>Dragon</option>
+      <option>Fairy</option>
+      <option>Fighting</option>
+      <option>Fire</option>
+      <option>Grass</option>
+      <option>Lightning</option>
+      <option>Metal</option>
+      <option>Psychic</option>
+      <option>Water</option>
+    </select>
+  </div>
+
+  <div class="status">
+    <div *ngIf="loading()" class="skeleton-grid" id="card-grid">
+      <div class="card-skeleton" *ngFor="let i of skeletons()" [attr.data-index]="i">
+        <div class="image-skel"></div>
+        <div class="text-skel"></div>
+      </div>
+    </div>
+
+    <div *ngIf="error()" class="error">
+      <p>{{ error() }}</p>
+      <button (click)="goToPage(1)">Retry</button>
+    </div>
+
+    <div *ngIf="!loading() && !error() && cards().length === 0" class="empty">
+      <p>No cards found for these filters</p>
+    </div>
+  </div>
+
+  <div class="card-grid" id="card-grid" *ngIf="!loading() && !error()">
+    <div class="card-cell" *ngFor="let card of cards(); trackBy: trackById" (mouseenter)="onCardMouseEnter(card,$event)" (mouseleave)="onCardMouseLeave()" (click)="selectCard(card)">
+      <div class="image-wrap">
+        <img
+          loading="lazy"
+          class="card-image"
+          [attr.alt]="card.name"
+          [attr.src]="'https://images.pokemontcg.io/' + card.setId + '/' + (card.id.split('-')[1]) + '.png'"
+        />
+      </div>
+      <div class="card-meta">
+        <div class="card-name">{{ card.name }}</div>
+        <div class="card-badge">{{ card.supertype }} · {{ card.types[0] || '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pagination" *ngIf="!loading() && !error()">
+    <button (click)="prevPage()" [disabled]="currentPage() === 1">Previous</button>
+
+    <button class="page-number" *ngFor="let p of pages()" (click)="goToPage(p)" [class.active]="p === currentPage()">{{ p }}</button>
+
+    <button (click)="nextPage()" [disabled]="currentPage() === totalPages()">Next</button>
+
+    <div class="page-info">Page {{ currentPage() }} of {{ totalPages() }}</div>
+  </div>
+
+  <div *ngIf="hoveredCard()">
+    <app-card-detail-overlay [card]="hoveredCard()" [rect]="hoveredCardRect()"></app-card-detail-overlay>
+  </div>
+</div>

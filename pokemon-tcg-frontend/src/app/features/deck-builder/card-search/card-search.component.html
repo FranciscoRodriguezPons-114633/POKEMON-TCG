@@ -1,0 +1,47 @@
+<section class="search-panel">
+  <form class="search-form" (ngSubmit)="search()">
+    <label for="card-query">Busqueda</label>
+    <div class="search-row">
+      <input
+        id="card-query"
+        name="query"
+        type="search"
+        [(ngModel)]="query"
+        placeholder="set.id:xy1"
+      />
+      <input
+        class="page-size"
+        name="pageSize"
+        type="number"
+        min="1"
+        max="100"
+        [(ngModel)]="pageSize"
+        aria-label="Cantidad de resultados"
+      />
+      <button type="submit" [disabled]="loading()">
+        {{ loading() ? 'Buscando' : 'Buscar' }}
+      </button>
+    </div>
+  </form>
+
+  @if (errorMessage(); as error) {
+    <p class="message error">{{ error }}</p>
+  }
+
+  <div class="results" aria-live="polite">
+    @for (card of cards(); track trackByCardId($index, card)) {
+      <article class="card-result">
+        <div>
+          <strong>{{ card.name }}</strong>
+          <span>{{ card.supertype }} | {{ card.setId }}</span>
+          @if (card.hp !== null) {
+            <span>HP {{ card.hp }}</span>
+          }
+        </div>
+        <button type="button" (click)="selectCard(card)">Agregar</button>
+      </article>
+    } @empty {
+      <p class="empty">Busca cartas para agregarlas al mazo.</p>
+    }
+  </div>
+</section>

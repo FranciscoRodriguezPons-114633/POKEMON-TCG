@@ -28,14 +28,15 @@ public class CardApiService {
         this.normalizer = normalizer;
     }
 
-    public CardSearchResponse search(@NonNull String query, int pageSize) {
+    public CardSearchResponse search(@NonNull String query, int pageSize, int page) {
         int safePageSize = Math.max(1, Math.min(pageSize, 250));
-        String key = "cards:search:" + query + ":" + safePageSize;
+        int safePage = Math.max(1, page);
+        String key = "cards:search:" + query + ":" + safePageSize + ":" + safePage;
         Object cache = readCache(key);
         if (cache instanceof CardSearchResponse response) {
             return response;
         }
-        Map<String, Object> result = Objects.requireNonNull(pokemonTcgClient.search(query, safePageSize));
+        Map<String, Object> result = Objects.requireNonNull(pokemonTcgClient.search(query, safePageSize, safePage));
         CardSearchResponse response = normalizer.searchResponse(query, safePageSize, result);
         writeCache(key, response);
         return response;

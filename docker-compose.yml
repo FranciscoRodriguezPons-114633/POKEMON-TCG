@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16
+    command: postgres -c timezone=UTC
     environment:
       POSTGRES_DB: pokemontcg
       POSTGRES_USER: postgres
@@ -23,6 +24,9 @@ services:
       dockerfile: game-service/Dockerfile
     environment:
       PORT: 8081
+      DB_URL: jdbc:postgresql://postgres:5432/pokemontcg
+      DB_USER: postgres
+      DB_PASSWORD: postgres
       REALTIME_URL: http://realtime-service:8082
     ports:
       - "8081:8081"
@@ -53,6 +57,13 @@ services:
       - "8083:8083"
     depends_on:
       - redis
+  
+  adminer:
+    image: adminer
+    ports:
+      - "8085:8080"
+    depends_on:
+      - postgres
 
 volumes:
   pg_data:

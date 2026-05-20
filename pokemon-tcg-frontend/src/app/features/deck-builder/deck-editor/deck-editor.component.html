@@ -1,0 +1,63 @@
+<section class="deck-panel">
+  <header class="deck-header">
+    <div>
+      <h2>Mazo</h2>
+      <p>{{ totalCards }}/60 cartas</p>
+    </div>
+  </header>
+
+  <form class="deck-form" (ngSubmit)="submit()">
+    <label for="deck-name">Nombre del mazo</label>
+    <input id="deck-name" name="deckName" type="text" [(ngModel)]="deckName" />
+
+    <label for="player-id">Player ID</label>
+    <input
+      id="player-id"
+      name="playerId"
+      type="text"
+      [(ngModel)]="playerId"
+      placeholder="11111111-1111-1111-1111-111111111111"
+    />
+
+    <button
+      type="submit"
+      [disabled]="saving || !deckName.trim() || !playerId.trim()"
+    >
+      {{ saving ? 'Guardando' : 'Guardar mazo' }}
+    </button>
+  </form>
+
+  @if (saveMessage) {
+    <p class="message success">{{ saveMessage }}</p>
+  }
+
+  @if (saveError) {
+    <p class="message error">{{ saveError }}</p>
+  }
+
+  @if (validationErrors.length > 0) {
+    <ul class="message error-list">
+      @for (error of validationErrors; track error) {
+        <li>{{ error }}</li>
+      }
+    </ul>
+  }
+
+  <div class="deck-list">
+    @for (entry of entries; track trackByCardId($index, entry)) {
+      <article class="deck-entry">
+        <div>
+          <strong>{{ entry.card.name }}</strong>
+          <span>{{ entry.card.id }}</span>
+        </div>
+        <div class="quantity-controls">
+          <button type="button" (click)="decreaseQuantity.emit(entry.card.id)">-</button>
+          <span>{{ entry.quantity }}</span>
+          <button type="button" (click)="increaseQuantity.emit(entry.card.id)">+</button>
+        </div>
+      </article>
+    } @empty {
+      <p class="empty">El mazo todavia no tiene cartas.</p>
+    }
+  </div>
+</section>

@@ -1,0 +1,42 @@
+.deck-builder {
+  color: #0f172a;
+  display: grid;
+  gap: 1.5rem;
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: 2rem;
+}
+
+.page-header {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 1rem;
+}
+
+.page-header p,
+.page-header h1 {
+  margin: 0;
+}
+
+.page-header p {
+  color: #64748b;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+}
+
+.builder-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.65fr);
+}
+
+@media (max-width: 900px) {
+  .deck-builder {
+    padding: 1rem;
+  }
+
+  .builder-grid {
+    grid-template-columns: 1fr;
+  }
+}

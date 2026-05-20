@@ -1,0 +1,22 @@
+<main class="deck-builder">
+  <header class="page-header">
+    <div>
+      <p>Pokemon TCG</p>
+      <h1>Deck Builder</h1>
+    </div>
+  </header>
+
+  <div class="builder-grid">
+    <app-card-catalog (cardSelected)="addCard($event)"></app-card-catalog>
+    <app-deck-editor
+      [entries]="entries()"
+      [validationErrors]="validationErrors()"
+      [saving]="saving()"
+      [saveMessage]="saveMessage()"
+      [saveError]="saveError()"
+      (increaseQuantity)="increaseQuantity($event)"
+      (decreaseQuantity)="decreaseQuantity($event)"
+      (saveDeck)="saveDeck($event)"
+    />
+  </div>
+</main>

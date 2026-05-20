@@ -3,11 +3,13 @@ package com.utn.pokemontcg.card.presentation;
 import com.utn.pokemontcg.card.application.CardApiService;
 import com.utn.pokemontcg.card.application.dto.CardSearchResponse;
 import com.utn.pokemontcg.card.application.dto.CardSummaryResponse;
+import com.utn.pokemontcg.card.config.CorsConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -19,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(CardController.class)
+@ContextConfiguration(classes = {CardController.class, CorsConfig.class})
 class CardControllerTest {
 
     @Autowired
@@ -68,5 +71,25 @@ class CardControllerTest {
             .andExpect(jsonPath("$.setId").value("xy1"));
 
         verify(cardApiService).byId("xy1-1");
+    }
+
+    @Test
+    void shouldAllowAnyOrigin() throws Exception {
+        when(cardApiService.search("set.id:xy1", 20)).thenReturn(new CardSearchResponse(
+            "set.id:xy1",
+            20,
+            0,
+            0,
+            List.of()
+        ));
+
+        mockMvc.perform(get("/api/cards")
+                .header("Origin", "http://example.test")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(result -> {
+                String origin = result.getResponse().getHeader("Access-Control-Allow-Origin");
+                org.junit.jupiter.api.Assertions.assertEquals("http://example.test", origin);
+            });
     }
 }

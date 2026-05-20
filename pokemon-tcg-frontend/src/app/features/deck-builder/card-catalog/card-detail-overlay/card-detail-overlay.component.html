@@ -1,0 +1,38 @@
+<div class="overlay" [ngStyle]="overlayStyle()" role="dialog" aria-label="Card detail">
+  <div class="overlay-inner">
+    <div class="overlay-image">
+      <img [src]="imageUrl(card)" [alt]="card?.name" />
+    </div>
+
+    <div class="overlay-body">
+      <h3 class="name">{{ card?.name }}</h3>
+      <div class="meta">{{ card?.supertype }} · {{ card?.subtypes?.join(', ') }}</div>
+
+      <div *ngIf="card?.supertype === 'Pokémon'">
+        <div class="hp">HP: {{ card?.hp ?? '—' }}</div>
+        <div class="types">
+          <span class="type" *ngFor="let t of card?.types">{{ t }}</span>
+        </div>
+      </div>
+
+      <div class="attacks" *ngIf="card?.attacks?.length">
+        <h4>Attacks</h4>
+        <div class="attack" *ngFor="let a of card?.attacks">
+          <div class="attack-header">
+            <div class="cost">
+              <span class="dot" *ngFor="let c of a.cost">{{ c }}</span>
+            </div>
+            <div class="attack-name">{{ a.name }}</div>
+            <div class="damage">{{ a.damage }}</div>
+          </div>
+          <div class="attack-text">{{ a.text }}</div>
+        </div>
+      </div>
+
+      <div class="wr-rr">
+        <div *ngIf="card?.weaknesses?.length" class="weaknesses">Weakness: {{ weaknessesText() }}</div>
+        <div *ngIf="card?.resistances?.length" class="resistances">Resistance: {{ resistancesText() }}</div>
+      </div>
+    </div>
+  </div>
+</div>

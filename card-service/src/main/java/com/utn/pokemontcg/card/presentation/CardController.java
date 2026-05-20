@@ -18,8 +18,9 @@ public class CardController {
 
     @GetMapping
     public ResponseEntity<CardSearchResponse> search(@RequestParam(defaultValue = "set.id:xy1") String q,
-                                                     @RequestParam(defaultValue = "20") int pageSize) {
-        return ResponseEntity.ok(cardApiService.search(q, pageSize));
+                                                     @RequestParam(defaultValue = "20") int pageSize,
+                                                     @RequestParam(defaultValue = "1") int page) {
+        return ResponseEntity.ok(cardApiService.search(q, pageSize, page));
     }
 
     @GetMapping("/{id}")

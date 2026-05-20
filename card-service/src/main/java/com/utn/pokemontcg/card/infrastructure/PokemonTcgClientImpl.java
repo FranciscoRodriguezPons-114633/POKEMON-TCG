@@ -29,10 +29,14 @@ public class PokemonTcgClientImpl implements PokemonTcgClient {
     }
 
     @Override
-    public Map<String, Object> search(String query, int pageSize) {
+    public Map<String, Object> search(String query, int pageSize, int page) {
         try {
             return Objects.requireNonNull(restClient.get()
-                .uri(uri -> uri.path("/cards").queryParam("q", query).queryParam("pageSize", pageSize).build())
+                .uri(uri -> uri.path("/cards")
+                    .queryParam("q", query)
+                    .queryParam("pageSize", pageSize)
+                    .queryParam("page", page)
+                    .build())
                 .retrieve()
                 .body(MAP_TYPE));
         } catch (RestClientException ex) {

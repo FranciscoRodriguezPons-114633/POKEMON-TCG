@@ -1,0 +1,37 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "CardServiceApplication",
+            "request": "launch",
+            "mainClass": "com.utn.pokemontcg.card.CardServiceApplication",
+            "projectName": "card-service"
+        },
+        {
+            "type": "java",
+            "name": "GameServiceApplication",
+            "request": "launch",
+            "mainClass": "com.utn.pokemontcg.game.GameServiceApplication",
+            "projectName": "game-service"
+        },
+        {
+            "type": "java",
+            "name": "PokemonTcgApplication",
+            "request": "launch",
+            "mainClass": "com.utn.pokemontcg.PokemonTcgApplication",
+            "projectName": "pokemon-tcg-backend",
+            "vmArgs": "-Duser.timezone=UTC"
+        },
+        {
+            "type": "java",
+            "name": "PokemonTcgApplication",
+            "request": "launch",
+            "mainClass": "com.utn.pokemontcg.PokemonTcgApplication",
+            "projectName": "pokemon-tcg-backend"
+        }
+    ]
+}
