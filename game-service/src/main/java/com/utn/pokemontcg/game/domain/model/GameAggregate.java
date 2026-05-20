@@ -43,6 +43,7 @@ public class GameAggregate {
     private final Map<UUID, EnumSet<StatusCondition>> statusByPlayer = new HashMap<>();
 
     private final Map<UUID, Boolean> activePokemonEx = new HashMap<>();
+    private final Map<UUID, UUID> deckIdsByPlayer = new HashMap<>();
     private final Map<UUID, String> activePokemon = new HashMap<>();
     private final Map<UUID, List<String>> bench = new HashMap<>();
     private final Map<UUID, List<String>> hand = new HashMap<>();
@@ -113,6 +114,8 @@ public class GameAggregate {
     public Map<UUID, EnumSet<StatusCondition>> statusByPlayer() { return statusByPlayer; }
 
     public Map<UUID, Boolean> activePokemonEx() { return activePokemonEx; }
+
+    public Map<UUID, UUID> deckIdsByPlayer() { return deckIdsByPlayer; }
 
     public Map<UUID, String> activePokemon() { return activePokemon; }
 

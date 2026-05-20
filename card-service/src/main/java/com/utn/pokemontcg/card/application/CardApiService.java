@@ -1,5 +1,7 @@
 package com.utn.pokemontcg.card.application;
 
+import com.utn.pokemontcg.card.application.dto.CardSearchResponse;
+import com.utn.pokemontcg.card.application.dto.CardSummaryResponse;
 import com.utn.pokemontcg.card.infrastructure.PokemonTcgClient;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.lang.NonNull;
@@ -16,33 +18,54 @@ public class CardApiService {
 
     private final PokemonTcgClient pokemonTcgClient;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final CardNormalizer normalizer;
 
-    public CardApiService(PokemonTcgClient pokemonTcgClient, RedisTemplate<String, Object> redisTemplate) {
+    public CardApiService(PokemonTcgClient pokemonTcgClient,
+                          RedisTemplate<String, Object> redisTemplate,
+                          CardNormalizer normalizer) {
         this.pokemonTcgClient = pokemonTcgClient;
         this.redisTemplate = redisTemplate;
+        this.normalizer = normalizer;
     }
 
-    @SuppressWarnings("unchecked")
-    public Map<String, Object> search(@NonNull String query, int pageSize) {
-        String key = "cards:search:" + query + ":" + pageSize;
-        Object cache = redisTemplate.opsForValue().get(key);
-        if (cache instanceof Map<?, ?> cachedMap) {
-            return (Map<String, Object>) cachedMap;
+    public CardSearchResponse search(@NonNull String query, int pageSize) {
+        int safePageSize = Math.max(1, Math.min(pageSize, 250));
+        String key = "cards:search:" + query + ":" + safePageSize;
+        Object cache = readCache(key);
+        if (cache instanceof CardSearchResponse response) {
+            return response;
         }
-        Map<String, Object> result = Objects.requireNonNull(pokemonTcgClient.search(query, pageSize));
-        redisTemplate.opsForValue().set(key, result, TTL);
-        return result;
+        Map<String, Object> result = Objects.requireNonNull(pokemonTcgClient.search(query, safePageSize));
+        CardSearchResponse response = normalizer.searchResponse(query, safePageSize, result);
+        writeCache(key, response);
+        return response;
     }
 
-    @SuppressWarnings("unchecked")
-    public Map<String, Object> byId(@NonNull String id) {
+    public CardSummaryResponse byId(@NonNull String id) {
         String key = "cards:id:" + id;
-        Object cache = redisTemplate.opsForValue().get(key);
-        if (cache instanceof Map<?, ?> cachedMap) {
-            return (Map<String, Object>) cachedMap;
+        Object cache = readCache(key);
+        if (cache instanceof CardSummaryResponse response) {
+            return response;
         }
         Map<String, Object> result = Objects.requireNonNull(pokemonTcgClient.getById(id));
-        redisTemplate.opsForValue().set(key, result, TTL);
-        return result;
+        CardSummaryResponse response = normalizer.byIdResponse(result);
+        writeCache(key, response);
+        return response;
+    }
+
+    private Object readCache(String key) {
+        try {
+            return redisTemplate.opsForValue().get(key);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private void writeCache(String key, Object value) {
+        try {
+            redisTemplate.opsForValue().set(key, value, TTL);
+        } catch (RuntimeException ignored) {
+            // Card lookup must keep working even if Redis is temporarily unavailable.
+        }
     }
 }

@@ -1,6 +1,8 @@
 package com.utn.pokemontcg.card.presentation;
 
 import com.utn.pokemontcg.card.application.CardApiService;
+import com.utn.pokemontcg.card.application.dto.CardSearchResponse;
+import com.utn.pokemontcg.card.application.dto.CardSummaryResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -8,7 +10,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.Map;
+import java.util.List;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,22 +29,43 @@ class CardControllerTest {
 
     @Test
     void shouldSearchCards() throws Exception {
-        when(cardApiService.search("set.id:xy1", 20)).thenReturn(Map.of("count", 1));
+        when(cardApiService.search("set.id:xy1", 20)).thenReturn(new CardSearchResponse(
+            "set.id:xy1",
+            20,
+            1,
+            1,
+            List.of(new CardSummaryResponse("xy1-1", "Venusaur-EX", "xy1", "Pokemon", List.of("Basic", "EX"), List.of("Grass"), 180, List.of(), List.of(), List.of()))
+        ));
 
         mockMvc.perform(get("/api/cards").accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.count").value(1));
+            .andExpect(jsonPath("$.count").value(1))
+            .andExpect(jsonPath("$.cards[0].id").value("xy1-1"))
+            .andExpect(jsonPath("$.cards[0].hp").value(180));
 
         verify(cardApiService).search("set.id:xy1", 20);
     }
 
     @Test
     void shouldGetCardById() throws Exception {
-        when(cardApiService.byId("xy1-1")).thenReturn(Map.of("id", "xy1-1"));
+        when(cardApiService.byId("xy1-1")).thenReturn(new CardSummaryResponse(
+            "xy1-1",
+            "Venusaur-EX",
+            "xy1",
+            "Pokemon",
+            List.of("Basic", "EX"),
+            List.of("Grass"),
+            180,
+            List.of(),
+            List.of(),
+            List.of()
+        ));
 
         mockMvc.perform(get("/api/cards/xy1-1").accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value("xy1-1"));
+            .andExpect(jsonPath("$.id").value("xy1-1"))
+            .andExpect(jsonPath("$.name").value("Venusaur-EX"))
+            .andExpect(jsonPath("$.setId").value("xy1"));
 
         verify(cardApiService).byId("xy1-1");
     }

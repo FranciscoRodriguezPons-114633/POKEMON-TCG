@@ -2,7 +2,10 @@ package com.utn.pokemontcg.realtime.presentation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.utn.pokemontcg.realtime.application.EventBroadcastService;
+import com.utn.pokemontcg.realtime.dto.GameEventEnvelope;
 import com.utn.pokemontcg.realtime.dto.GameEventMessage;
+import com.utn.pokemontcg.realtime.dto.GameEventType;
+import com.utn.pokemontcg.realtime.dto.PendingEventsResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -11,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -42,12 +46,24 @@ class RealtimeControllerTest {
             Map.of("turn", 1),
             Instant.parse("2026-05-06T18:00:00Z")
         );
+        GameEventEnvelope envelope = new GameEventEnvelope(
+            1L,
+            1,
+            message.gameId(),
+            GameEventType.TURN_STARTED,
+            message.payload(),
+            message.occurredAt(),
+            Instant.parse("2026-05-06T18:00:01Z")
+        );
+        when(eventBroadcastService.broadcast(any(GameEventMessage.class))).thenReturn(envelope);
 
         mockMvc.perform(post("/internal/events")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(message)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.status").value("PUBLISHED"));
+            .andExpect(jsonPath("$.sequence").value(1))
+            .andExpect(jsonPath("$.schemaVersion").value(1))
+            .andExpect(jsonPath("$.type").value("TURN_STARTED"));
 
         verify(eventBroadcastService).broadcast(any(GameEventMessage.class));
     }
@@ -61,12 +77,25 @@ class RealtimeControllerTest {
             Map.of("damage", 30),
             Instant.parse("2026-05-06T18:01:00Z")
         );
-        when(eventBroadcastService.eventsSince(gameId, Instant.parse("2026-05-06T18:00:00Z")))
-            .thenReturn(java.util.List.of(message));
+        GameEventEnvelope envelope = new GameEventEnvelope(
+            2L,
+            1,
+            gameId,
+            GameEventType.ATTACK_RESOLVED,
+            message.payload(),
+            message.occurredAt(),
+            Instant.parse("2026-05-06T18:01:01Z")
+        );
+        when(eventBroadcastService.pendingEvents(gameId, 1L, Instant.parse("2026-05-06T18:00:00Z")))
+            .thenReturn(new PendingEventsResponse(gameId, 2L, true, Instant.parse("2026-05-06T18:01:02Z"), List.of(envelope)));
 
         mockMvc.perform(get("/internal/events/{gameId}", gameId)
+                .param("sinceSequence", "1")
                 .param("since", "2026-05-06T18:00:00Z"))
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.lastSequence").value(2))
+            .andExpect(jsonPath("$.replayFromMemory").value(true))
+            .andExpect(jsonPath("$.events[0].sequence").value(2))
             .andExpect(jsonPath("$.events[0].type").value("ATTACK_RESOLVED"));
     }
 }

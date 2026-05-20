@@ -1,9 +1,11 @@
 package com.utn.pokemontcg.card.infrastructure;
 
+import com.utn.pokemontcg.card.application.CardProviderException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClient;
 
 import java.util.Map;
@@ -28,17 +30,25 @@ public class PokemonTcgClientImpl implements PokemonTcgClient {
 
     @Override
     public Map<String, Object> search(String query, int pageSize) {
-        return Objects.requireNonNull(restClient.get()
-            .uri(uri -> uri.path("/cards").queryParam("q", query).queryParam("pageSize", pageSize).build())
-            .retrieve()
-            .body(MAP_TYPE));
+        try {
+            return Objects.requireNonNull(restClient.get()
+                .uri(uri -> uri.path("/cards").queryParam("q", query).queryParam("pageSize", pageSize).build())
+                .retrieve()
+                .body(MAP_TYPE));
+        } catch (RestClientException ex) {
+            throw new CardProviderException("No se pudo consultar pokemontcg.io", ex);
+        }
     }
 
     @Override
     public Map<String, Object> getById(String id) {
-        return Objects.requireNonNull(restClient.get()
-            .uri("/cards/{id}", id)
-            .retrieve()
-            .body(MAP_TYPE));
+        try {
+            return Objects.requireNonNull(restClient.get()
+                .uri("/cards/{id}", id)
+                .retrieve()
+                .body(MAP_TYPE));
+        } catch (RestClientException ex) {
+            throw new CardProviderException("No se pudo consultar pokemontcg.io", ex);
+        }
     }
 }

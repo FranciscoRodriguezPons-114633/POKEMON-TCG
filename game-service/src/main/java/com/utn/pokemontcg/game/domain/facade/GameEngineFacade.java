@@ -9,7 +9,9 @@ import com.utn.pokemontcg.game.domain.model.GameAggregate;
 import com.utn.pokemontcg.game.domain.state.*;
 
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class GameEngineFacade {
 
@@ -56,10 +58,22 @@ public class GameEngineFacade {
         ));
         AttackContext context = buildDefaultAttackContext(game);
         pipeline.resolve(context);
-        eventPublisher.publish(GameEvent.of(game.id(), GameEventType.ATTACK_RESOLVED, Map.of(
-            "damage", context.damage(),
-            "auditTrail", context.auditTrail()
-        )));
+        UUID attacker = game.currentTurnPlayer();
+        UUID defender = attacker != null && attacker.equals(game.playerOne()) ? game.playerTwo() : game.playerOne();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("attacker", attacker);
+        payload.put("defender", defender);
+        payload.put("attackingPokemon", game.activePokemon().get(attacker));
+        payload.put("defendingPokemon", game.activePokemon().get(defender));
+        payload.put("damage", context.damage());
+        payload.put("baseDamage", context.baseDamage());
+        payload.put("requiredEnergy", context.requiredEnergy());
+        payload.put("attachedEnergy", context.attachedEnergy());
+        payload.put("cancelled", context.cancelled());
+        payload.put("weaknessMultiplier", context.weaknessMultiplier());
+        payload.put("resistanceReduction", context.resistanceReduction());
+        payload.put("auditTrail", context.auditTrail());
+        eventPublisher.publish(GameEvent.of(game.id(), GameEventType.ATTACK_RESOLVED, payload));
         game.setTurnPhase(com.utn.pokemontcg.game.domain.model.TurnPhase.BETWEEN_TURNS);
         return context;
     }

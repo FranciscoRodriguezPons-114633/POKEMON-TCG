@@ -10,18 +10,29 @@ import java.util.UUID;
 @Service
 public class VictoryService {
 
-    public void applyKnockoutAndPrizes(GameAggregate game, UUID attacker, UUID defender) {
-        if (attacker == null || defender == null) return;
+    public KnockoutResult applyKnockoutAndPrizes(GameAggregate game, UUID attacker, UUID defender) {
+        if (attacker == null || defender == null) return KnockoutResult.none(attacker, defender);
 
-        if (game.activeHp().getOrDefault(defender, 1) > 0) return;
-        if (game.activePokemon().get(defender) == null) return;
+        if (game.activeHp().getOrDefault(defender, 1) > 0) return KnockoutResult.none(attacker, defender);
+        String knockedOutCard = game.activePokemon().get(defender);
+        if (knockedOutCard == null) return KnockoutResult.none(attacker, defender);
 
         int prizeLoss = game.activePokemonEx().getOrDefault(defender, false) ? 2 : 1;
 
         discardKnockedOutActive(game, defender);
-        takePrizeCards(game, attacker, prizeLoss);
+        int prizesTaken = takePrizeCards(game, attacker, prizeLoss);
 
-        promoteFromBenchIfPossible(game, defender);
+        String promoted = promoteFromBenchIfPossible(game, defender);
+        return new KnockoutResult(
+            true,
+            attacker,
+            defender,
+            knockedOutCard,
+            promoted,
+            prizesTaken,
+            game.prizeCardsRemaining().getOrDefault(attacker, 0),
+            !game.hasPokemonInPlay(defender)
+        );
     }
 
     public UUID checkWinner(GameAggregate game) {
@@ -74,7 +85,7 @@ public class VictoryService {
         game.statusByPlayer().remove(player);
     }
 
-    private void takePrizeCards(GameAggregate game, UUID player, int amount) {
+    private int takePrizeCards(GameAggregate game, UUID player, int amount) {
         List<String> prizes = game.prizeCards().getOrDefault(player, List.of());
         List<String> hand = game.hand().computeIfAbsent(player, ignored -> new java.util.ArrayList<>());
         int taken = 0;
@@ -83,12 +94,13 @@ public class VictoryService {
             taken++;
         }
         game.prizeCardsRemaining().put(player, prizes.size());
+        return taken;
     }
 
-    private void promoteFromBenchIfPossible(GameAggregate game, UUID player) {
+    private String promoteFromBenchIfPossible(GameAggregate game, UUID player) {
         List<String> bench = game.bench().getOrDefault(player, List.of());
         if (bench.isEmpty()) {
-            return;
+            return null;
         }
         String promoted = bench.remove(0);
         game.activePokemon().put(player, promoted);
@@ -97,5 +109,21 @@ public class VictoryService {
         game.activeAttachedEnergy().put(player, 0);
         var card = game.cardCatalog().get(promoted);
         game.activePokemonEx().put(player, card != null && card.isPokemonEx());
+        return promoted;
+    }
+
+    public record KnockoutResult(
+        boolean knockedOut,
+        UUID attacker,
+        UUID defender,
+        String knockedOutCard,
+        String promotedCard,
+        int prizesTaken,
+        int prizeCardsRemaining,
+        boolean defenderHasNoPokemon
+    ) {
+        static KnockoutResult none(UUID attacker, UUID defender) {
+            return new KnockoutResult(false, attacker, defender, null, null, 0, 0, false);
+        }
     }
 }

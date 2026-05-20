@@ -1,14 +1,14 @@
 package com.utn.pokemontcg.realtime.presentation;
 
 import com.utn.pokemontcg.realtime.application.EventBroadcastService;
+import com.utn.pokemontcg.realtime.dto.GameEventEnvelope;
 import com.utn.pokemontcg.realtime.dto.GameEventMessage;
+import com.utn.pokemontcg.realtime.dto.PendingEventsResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -21,16 +21,16 @@ public class RealtimeController {
     }
 
     @PostMapping("/internal/events")
-    public ResponseEntity<Map<String, String>> publishFromGameService(@Valid @RequestBody GameEventMessage event) {
-        broadcastService.broadcast(event);
-        return ResponseEntity.ok(Map.of("status", "PUBLISHED"));
+    public ResponseEntity<GameEventEnvelope> publishFromGameService(@Valid @RequestBody GameEventMessage event) {
+        return ResponseEntity.ok(broadcastService.broadcast(event));
     }
 
     @GetMapping("/internal/events/{gameId}")
-    public ResponseEntity<Map<String, List<GameEventMessage>>> pendingEvents(
+    public ResponseEntity<PendingEventsResponse> pendingEvents(
         @PathVariable("gameId") UUID gameId,
+        @RequestParam(name = "sinceSequence", required = false) Long sinceSequence,
         @RequestParam(name = "since", required = false) Instant since
     ) {
-        return ResponseEntity.ok(Map.of("events", broadcastService.eventsSince(gameId, since)));
+        return ResponseEntity.ok(broadcastService.pendingEvents(gameId, sinceSequence, since));
     }
 }

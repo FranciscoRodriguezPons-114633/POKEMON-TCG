@@ -4,4 +4,4 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;
 
-public record JoinGameRequest(@NotNull UUID playerId) {}
+public record JoinGameRequest(@NotNull UUID playerId, UUID deckId) {}
