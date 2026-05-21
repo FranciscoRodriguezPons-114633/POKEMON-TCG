@@ -53,30 +53,29 @@ Pendiente o parcial:
 flowchart LR
     FE["Frontend\nREST Client\nWebSocket/STOMP Client"]
 
-    GS["game-service\nREST Web Server\nReglas y fuente de verdad\nSnapshots + action log"]
+    GS["game-service\nREST Web Server\nGame source of truth\nSnapshots + action log"]
 
-    RTS["realtime-service\nREST Web Server interno\nWebSocket/STOMP Server\nEventos persistidos"]
+    RTS["realtime-service\nREST Web Server interno\nWebSocket/STOMP Server\nEvent broadcaster"]
 
-    CS["card-service\nREST Web Server\nREST Client externo\nCache Redis"]
+    CS["card-service\nREST Web Server\nREST Client externo\nRedis cache"]
 
-    PG[("PostgreSQL\nDecks\nGame snapshots\nAction logs\nRealtime events")]
+    PG[("Postgres\nGame snapshots\nAction logs\nDecks")]
 
     REDIS[("Redis\nCard cache")]
 
-    API["pokemontcg.io\nExternal REST API"]
+    EXT["pokemontcg.io\nExternal REST API"]
 
-    FE -- "REST: crear partida, mazos, acciones, estado" --> GS
-    FE -- "REST: buscar cartas" --> CS
-    FE -- "WS/STOMP: suscripcion a eventos de partida" --> RTS
+    FE -- "REST: commands, state, decks" --> GS
+    FE -- "REST: card search/details" --> CS
+    FE -- "WebSocket/STOMP: listens game events" --> RTS
 
-    GS -- "JPA/Hibernate" --> PG
-    GS -- "REST Client: POST /internal/events" --> RTS
+    GS -- "JPA/Hibernate/JDBC" --> PG
+    GS -- "REST: publishes game events" --> RTS
 
-    RTS -- "JPA/Hibernate" --> PG
-    RTS -- "WS/STOMP: /topic/games/{gameId}/events" --> FE
+    RTS -- "WebSocket/STOMP: broadcasts events" --> FE
 
-    CS -- "Redis read/write" --> REDIS
-    CS -- "REST Client" --> API
+    CS -- "REST: fetches cards" --> EXT
+    CS -- "Redis cache read/write" --> REDIS
 ```
 
 ## Flujo De Una Accion
@@ -363,4 +362,3 @@ Cobertura actual del flujo backend:
 - `realtime-service` no modifica partidas; solo persiste y distribuye eventos.
 - `card-service` no participa durante una partida ya iniciada; se usa para busqueda/normalizacion de cartas antes de guardar mazos.
 - Para correr servicios con Maven, mantener levantados PostgreSQL y Redis con Docker.
-
