@@ -1,208 +1,366 @@
-# Pokémon TCG Backend - Multi-módulo Maven (3 servicios)
+# Pokemon TCG Platform
 
-Este repositorio ahora está organizado como **multi-módulo Maven** con 3 servicios independientes:
+Backend multi-servicio para una version digital de Pokemon TCG orientada a partidas de 2 jugadores, construccion de mazos XY1, persistencia de partidas y eventos en tiempo real.
 
-- `game-service` (puerto 8081)
-- `realtime-service` (puerto 8082)
-- `card-service` (puerto 8083)
+El proyecto esta organizado como un parent Maven con 3 servicios Spring Boot activos:
 
-## Estructura
+- `game-service`: reglas del juego, partidas, mazos, persistencia y publicacion de eventos.
+- `card-service`: busqueda y normalizacion de cartas desde `pokemontcg.io`, con cache Redis.
+- `realtime-service`: recepcion de eventos validados, persistencia de eventos y broadcast WebSocket/STOMP.
 
-```text
-pokemon-tcg-platform/
-├── pom.xml (parent)
-├── game-service/
-├── realtime-service/
-└── card-service/
+La carpeta `src/` de la raiz corresponde a una etapa monolitica anterior. La implementacion activa esta en `game-service/`, `card-service/` y `realtime-service/`.
+
+## Consigna Del TPI
+
+La consigna pide una aplicacion de Pokemon TCG jugable de punta a punta para 2 jugadores, con backend como fuente de verdad. El alcance tecnico trabajado incluye:
+
+- reglas principales de partida: setup, mulligan, activo, banca, premios, turnos, ataques, KO y victoria;
+- tipos de cartas relevantes: Pokemon, Pokemon Basico, Pokemon EX, Energia, Entrenador, Supporter e Item;
+- construccion y validacion de mazos para set `xy1`;
+- persistencia de estado y log de acciones;
+- comunicacion en tiempo real por WebSocket;
+- reconexion mediante estado actual y eventos pendientes;
+- frontend como consumidor REST + WebSocket, sin reglas de juego propias.
+
+## Estado Actual
+
+Implementado:
+
+- Backend dividido en 3 servicios Spring Boot.
+- CRUD de mazos y validacion basica XY1.
+- Creacion, union y setup de partidas con `deckId`.
+- Zonas de juego: mazo, mano, premios, descarte, activo y banca.
+- Turnos con fases `DRAW`, `MAIN`, `ATTACK`, `BETWEEN_TURNS`.
+- Acciones: robar, unir energia, jugar supporter, retreat, atacar, aplicar condicion, resolver entre turnos y terminar turno.
+- Ataque con pipeline, energia requerida, dano, debilidad/resistencia modelada, KO, premios y victoria.
+- Condiciones especiales modeladas: `ASLEEP`, `PARALYZED`, `CONFUSED`, `POISONED`, `BURNED`.
+- Snapshots y action log en PostgreSQL.
+- Eventos realtime persistidos y emitidos por WebSocket/STOMP.
+- Swagger UI en los 3 servicios.
+- Tests unitarios e integracion de backend.
+
+Pendiente o parcial:
+
+- Frontend completo: lobby, deck builder, tablero, drag and drop, log visual.
+- Integracion automatica entre deck builder y `card-service` para no cargar datos de cartas manualmente.
+- Reglas avanzadas de cartas Trainer/Item/Supporter y efectos especificos de cada carta.
+- Autenticacion real/JWT para reemplazar validacion simple por `playerId`.
+- E2E con frontend real.
+
+## Arquitectura General
+
+```mermaid
+flowchart LR
+    FE["Frontend\nREST Client\nWebSocket/STOMP Client"]
+
+    GS["game-service\nREST Web Server\nReglas y fuente de verdad\nSnapshots + action log"]
+
+    RTS["realtime-service\nREST Web Server interno\nWebSocket/STOMP Server\nEventos persistidos"]
+
+    CS["card-service\nREST Web Server\nREST Client externo\nCache Redis"]
+
+    PG[("PostgreSQL\nDecks\nGame snapshots\nAction logs\nRealtime events")]
+
+    REDIS[("Redis\nCard cache")]
+
+    API["pokemontcg.io\nExternal REST API"]
+
+    FE -- "REST: crear partida, mazos, acciones, estado" --> GS
+    FE -- "REST: buscar cartas" --> CS
+    FE -- "WS/STOMP: suscripcion a eventos de partida" --> RTS
+
+    GS -- "JPA/Hibernate" --> PG
+    GS -- "REST Client: POST /internal/events" --> RTS
+
+    RTS -- "JPA/Hibernate" --> PG
+    RTS -- "WS/STOMP: /topic/games/{gameId}/events" --> FE
+
+    CS -- "Redis read/write" --> REDIS
+    CS -- "REST Client" --> API
 ```
 
-## Migraciones realizadas
+## Flujo De Una Accion
 
-### 1) Card API a `card-service`
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant GS as game-service
+    participant PG as PostgreSQL
+    participant RTS as realtime-service
 
-Se migraron responsabilidades de cartas a un servicio dedicado:
+    FE->>GS: REST /api/games/{gameId}/actions
+    GS->>GS: Valida fase, reglas y estado
+    GS->>PG: Guarda snapshot + action log
+    GS->>RTS: REST /internal/events
+    RTS->>PG: Persiste evento realtime
+    RTS-->>FE: WebSocket/STOMP broadcast
+    GS-->>FE: REST estado actualizado
+```
 
-- `CardController`
-- `CardApiService`
-- `PokemonTcgClient`
-- Redis cache (TTL 7 días)
+## Tecnologias
 
-### 2) WebSocket a `realtime-service`
+- Java 21
+- Maven multi-modulo
+- Spring Boot 3.5.14
+- Spring Web
+- Spring WebSocket/STOMP
+- Spring Data JPA
+- Hibernate
+- Flyway
+- PostgreSQL 16
+- Redis 7
+- Spring Validation
+- Springdoc OpenAPI / Swagger UI
+- JUnit 5 + Spring Boot Test + Mockito
+- Docker Compose
 
-Se migró la capa WebSocket STOMP:
+## Servicios Y Puertos
 
-- endpoint `/ws`
-- broker `/topic`
-- endpoint interno `/internal/events` para recibir eventos del `game-service`
+| Servicio | Puerto | Responsabilidad |
+| --- | ---: | --- |
+| `game-service` | 8081 | Partidas, reglas, mazos, snapshots, action log |
+| `realtime-service` | 8082 | Eventos realtime, WebSocket/STOMP, reconexion |
+| `card-service` | 8083 | Cartas desde `pokemontcg.io`, normalizacion y cache |
+| PostgreSQL | 5433 | Base local compartida |
+| Redis | 6380 | Cache local expuesta al host |
 
-### 3) `game-service` con patrones de diseño requeridos
+Dentro de Docker, Redis escucha en `redis:6379` y PostgreSQL en `postgres:5432`.
 
-- **State**
-  - Estados de partida: `WAITING`, `SETUP`, `ACTIVE`, `FINISHED`
-  - Estados de turno: `DRAW`, `MAIN`, `ATTACK`, `BETWEEN_TURNS`
-- **Strategy**
-  - `TrainerEffectStrategy`
-  - `AttackEffectStrategy`
-#### 1. Chain of Responsibility (Pipeline de Ataque)
-Se implementó un `AttackResolutionPipeline` que garantiza que el flujo de ataque siga los 7 pasos oficiales del TCG de forma determinista:
-1. **EnergyValidationStep**: Verifica que el Pokémon tenga las energías necesarias.
-2. **ConfusionCheckStep**: Si el Pokémon está confundido, lanza moneda para ver si falla.
-3. **SelectionStep**: Elige el objetivo y el ataque específico.
-4. **PreAttackStep**: Aplica efectos que ocurren "antes" del daño (ej: protecciones).
-5. **ModifierStep**: Aplica debilidades, resistencias y herramientas aplicadas.
-6. **DamageCalculationStep**: Realiza el cálculo matemático final del daño.
-7. **PostDamageEffectsStep**: Aplica efectos secundarios (ej: poner contadores de veneno).
+## Requisitos Para Levantar Por Primera Vez
 
-#### 2. Observer (Arquitectura de Eventos)
-- **GameEventPublisher**: Centraliza todos los cambios de estado del juego.
-- **GameEventObserver**: Interfaz para suscriptores internos.
-- **HttpRealtimeObserver**: Implementación específica que notifica cambios al `realtime-service` para su difusión vía WebSockets.
-- **Repository**
-  - Interfaces: `GameStateRepository`, `DeckRepository`, `CardRepository`
-  - Implementación inicial: `InMemoryGameStateRepository`
-- **Facade**
-  - `GameEngineFacade` como API interna del motor
+Instalar:
 
-## Endpoints
+- JDK 21
+- Maven 3.9+
+- Docker Desktop
+- Git
 
-### game-service
+Verificar:
 
+```bash
+java -version
+mvn -version
+docker --version
+```
+
+La API key de `pokemontcg.io` es opcional. Sin key, `card-service` puede consultar igual, pero con limites publicos.
+
+## Primer Levantado Local Recomendado
+
+Desde la raiz del proyecto:
+
+```bash
+cd /Users/franciscorodriguezpons/Documents/pokemon-new/POKEMON-TCG
+```
+
+1. Compilar y bajar dependencias Maven:
+
+```bash
+mvn clean package
+```
+
+2. Levantar infraestructura:
+
+```bash
+docker compose up -d postgres redis
+```
+
+3. Levantar `realtime-service`:
+
+```bash
+mvn -pl realtime-service spring-boot:run
+```
+
+4. Levantar `game-service` en otra terminal:
+
+```bash
+mvn -pl game-service spring-boot:run
+```
+
+5. Levantar `card-service` en otra terminal:
+
+```bash
+REDIS_PORT=6380 mvn -pl card-service spring-boot:run
+```
+
+Usamos `REDIS_PORT=6380` porque Docker expone Redis al host en el puerto `6380`.
+
+## Variables De Entorno Utiles
+
+`game-service`:
+
+```bash
+PORT=8081
+DB_URL=jdbc:postgresql://localhost:5433/pokemontcg
+DB_USER=postgres
+DB_PASSWORD=postgres
+REALTIME_URL=http://localhost:8082
+```
+
+`realtime-service`:
+
+```bash
+PORT=8082
+DB_URL=jdbc:postgresql://localhost:5433/pokemontcg
+DB_USER=postgres
+DB_PASSWORD=postgres
+```
+
+`card-service`:
+
+```bash
+PORT=8083
+REDIS_HOST=localhost
+REDIS_PORT=6380
+POKEMON_TCG_API_KEY=
+```
+
+## Swagger
+
+Con los servicios levantados:
+
+- Game Service: http://localhost:8081/swagger-ui/index.html
+- Realtime Service: http://localhost:8082/swagger-ui/index.html
+- Card Service: http://localhost:8083/swagger-ui/index.html
+
+## Endpoints Principales
+
+`game-service`:
+
+- `POST /api/decks`
+- `PUT /api/decks/{deckId}`
+- `GET /api/decks/{deckId}`
+- `GET /api/decks?playerId={playerId}`
+- `DELETE /api/decks/{deckId}`
 - `POST /api/games`
 - `POST /api/games/{gameId}/join`
+- `POST /api/games/{gameId}/setup`
 - `POST /api/games/{gameId}/actions`
 - `GET /api/games/{gameId}`
+- `GET /api/games/{gameId}/actions`
+- `GET /api/games/{gameId}/sync`
 
-### card-service
+`card-service`:
 
 - `GET /api/cards?q=set.id:xy1&pageSize=20`
 - `GET /api/cards/{id}`
 
-### realtime-service
+`realtime-service`:
 
-- `POST /internal/events` (uso interno entre servicios)
-- WebSocket STOMP `/ws` + `/topic/games/{gameId}/events`
+- `POST /internal/events`
+- `GET /internal/events/{gameId}?sinceSequence={lastSeenSequence}`
+- WebSocket/STOMP: `/ws`
+- Topic de partida: `/topic/games/{gameId}/events`
 
-## Build
+## Acciones De Juego Soportadas
 
-```bash
-mvn -pl game-service,card-service,realtime-service clean package
-```
+En `POST /api/games/{gameId}/actions`:
 
-## Run local
+- `DRAW`
+- `ATTACH_ENERGY`
+- `PLAY_SUPPORTER`
+- `RETREAT`
+- `ATTACK`
+- `END_TURN`
+- `TAKE_PRIZE`
+- `APPLY_SPECIAL_CONDITION`
+- `RESOLVE_BETWEEN_TURNS`
 
-```bash
-docker compose up -d
-```
+Para condicion especial se puede enviar `condition` con:
 
-> Nota: los Dockerfiles esperan jars construidos en `*/target/`.
+- `ASLEEP`
+- `PARALYZED`
+- `CONFUSED`
+- `POISONED`
+- `BURNED`
 
-## Planificación (Fase 0)
+## Eventos Realtime
 
-Se agregaron artefactos de gestión para congelar alcance y preparar ejecución por historias:
+Eventos actuales emitidos por `realtime-service`:
 
-- `docs/phase-0/mvp-scope.md`
-- `docs/phase-0/definition-of-done-rf.md`
-- `docs/phase-0/product-backlog-stories.md`
+- `GAME_CREATED`
+- `PLAYER_JOINED`
+- `GAME_SETUP`
+- `SETUP_COMPLETED`
+- `TURN_STARTED`
+- `TURN_PHASE_CHANGED`
+- `CARD_DRAWN`
+- `ENERGY_ATTACHED`
+- `SUPPORTER_PLAYED`
+- `RETREAT_DECLARED`
+- `ATTACK_RESOLVED`
+- `KO`
+- `PRIZE_TAKEN`
+- `STATUS_APPLIED`
+- `BETWEEN_TURNS_RESOLVED`
+- `GAME_FINISHED`
+- `STATE_SYNCED`
 
-## Estado de legacy monolito (`src/` raíz)
+El cliente WebSocket debe suscribirse al topic de la partida enviando el header STOMP `playerId`. Hoy esa validacion es simple y sirve para el TPI; para produccion deberia reemplazarse por autenticacion real.
 
-La estructura legacy de monolito en `src/` de raíz **no forma parte** de esta versión consolidada.
-La fuente activa del backend está únicamente en los módulos:
+## Persistencia Y Migraciones
 
-- `game-service/src`
-- `card-service/src`
-- `realtime-service/src`
+`game-service` usa PostgreSQL para:
 
-## Persistencia de estado (Fase 1)
+- mazos;
+- cartas cacheadas localmente para mazos;
+- snapshots completos de partida;
+- action log inmutable.
 
-- `game-service` ahora persiste snapshots de partida y action log en PostgreSQL vía JPA.
-- Repositorio en memoria queda sólo para tests/local profile `memory`.
-- La estructura legacy de monolito en `/src` no se usa en esta arquitectura consolidada.
+`realtime-service` usa PostgreSQL para:
 
-## Estado actual del proyecto
+- eventos realtime;
+- reconexion por `sinceSequence`.
 
-### Hecho hasta ahora
-- Arquitectura multi-módulo con `game-service`, `card-service` y `realtime-service`.
-- Persistencia base en PostgreSQL para snapshots y logs de partida en `game-service`.
-- RF-04 backend inicial: CRUD de mazos (`/api/decks`) y validación oficial mínima (60 cartas, máximo 4 copias salvo energía básica, 1 AS TÁCTICO, al menos 1 Básico).
-- Endpoints de juego para create/join/setup/actions/state/logs.
+Flyway aplica migraciones al iniciar:
 
-### Falta (prioridad real)
-1. RF-01 completo: KO total de campo, condiciones especiales completas y muerte súbita robusta.
-2. RF-05 producción: rehidratación y replay robustos con consistencia de concurrencia.
-3. RF-06: reconexión robusta por sesión y sincronización de estado pendiente.
-4. RF-07 frontend: lobby/tablero/drag&drop/log visual/e2e.
-5. RNF calidad: cobertura objetivo (80% global, >90% críticos) y test E2E completo.
+- `game-service/src/main/resources/db/migration`
+- `realtime-service/src/main/resources/db/migration/realtime`
 
-# Pokémon TCG Backend (Spring Boot)
-
-Backend base para una implementación digital de Pokémon TCG con arquitectura en capas:
-
-- **Presentation**: REST + WebSocket (STOMP).
-- **Application**: servicios de orquestación (`GameService`, `DeckService`).
-- **Domain**: entidades y motor (`GameEngineFacade`, validadores de reglas).
-- **Infrastructure**: cliente `pokemontcg.io`, JPA, Redis.
-
-## Stack
-
-- Java 21
-- Spring Boot 3.4.x
-- PostgreSQL
-- Redis
-- Maven
-
-## Estructura principal
-
-```text
-src/main/java/com/utn/pokemontcg
-├── config
-├── presentation/controller
-├── presentation/dto
-├── application/service
-├── domain/model
-├── domain/engine
-├── domain/validator
-└── infrastructure
-    ├── external/pokemontcg
-    └── persistence
-```
-
-## Endpoints base
-
-- `POST /api/games` crear partida
-- `POST /api/games/{gameId}/join` unirse a partida
-- `GET /api/games/{gameId}` estado de partida
-- `POST /api/games/{gameId}/attack` transición de ataque (placeholder)
-- `POST /api/decks/validate` validación de mazo (60 cartas, límite de copias)
-- `GET /api/cards?q=set.id:xy1&pageSize=20` búsqueda contra `pokemontcg.io`
-
-## Correr local
-
-```bash
-docker compose up -d
-mvn spring-boot:run
-```
-
-Variables útiles:
-
-- `DB_URL`, `DB_USER`, `DB_PASSWORD`
-- `REDIS_HOST`, `REDIS_PORT`
-- `POKEMON_TCG_API_KEY`
+`realtime-service` usa una tabla de historial propia: `realtime_flyway_schema_history`, para no chocar con las migraciones del `game-service`.
 
 ## Tests
+
+Correr todos los tests:
 
 ```bash
 mvn test
 ```
 
-## Estado del proyecto
+Correr un servicio especifico:
 
-Este commit deja una **base funcional y compilable** para continuar con:
+```bash
+mvn -pl game-service test
+mvn -pl card-service test
+mvn -pl realtime-service test
+```
 
-- pipeline completo de ataques,
-- estados avanzados de juego,
-- persistencia completa del estado,
-- autenticación JWT,
-- sincronización de eventos por WebSocket por sala/partida,
-- integración frontend Angular.
+Cobertura actual del flujo backend:
+
+- motor de reglas;
+- validacion de turnos;
+- setup con mazos reales;
+- KO, premios y victoria;
+- serializacion de snapshots;
+- deck builder;
+- card service;
+- realtime REST + WebSocket;
+- flujo `game-service` observer -> `realtime-service` -> WebSocket.
+
+## Documentacion Complementaria
+
+- `docs/game-service-manual-test.md`: guia manual con `curl`.
+- `docs/microservices-architecture.md`: diagramas de comunicacion.
+- `docs/realtime-contract.md`: contrato de eventos realtime.
+- `docs/phase-0/mvp-scope.md`: alcance MVP segun consigna.
+- `docs/phase-0/definition-of-done-rf.md`: DoD por requerimiento funcional.
+- `docs/phase-0/product-backlog-stories.md`: backlog tecnico.
+
+## Notas Importantes
+
+- El backend es la fuente de verdad: el frontend no deberia decidir reglas de juego.
+- `game-service` valida acciones y guarda estado antes de publicar eventos.
+- `realtime-service` no modifica partidas; solo persiste y distribuye eventos.
+- `card-service` no participa durante una partida ya iniciada; se usa para busqueda/normalizacion de cartas antes de guardar mazos.
+- Para correr servicios con Maven, mantener levantados PostgreSQL y Redis con Docker.
 
