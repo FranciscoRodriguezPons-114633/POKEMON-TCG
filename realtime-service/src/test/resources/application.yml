@@ -1,14 +1,9 @@
-server:
-  port: ${PORT:8082}
-
 spring:
-  application:
-    name: realtime-service
-
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5433/pokemontcg}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: jdbc:h2:mem:realtime_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
 
   jpa:
     hibernate:

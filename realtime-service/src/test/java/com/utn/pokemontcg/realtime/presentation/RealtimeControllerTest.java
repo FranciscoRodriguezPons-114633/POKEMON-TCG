@@ -87,14 +87,14 @@ class RealtimeControllerTest {
             Instant.parse("2026-05-06T18:01:01Z")
         );
         when(eventBroadcastService.pendingEvents(gameId, 1L, Instant.parse("2026-05-06T18:00:00Z")))
-            .thenReturn(new PendingEventsResponse(gameId, 2L, true, Instant.parse("2026-05-06T18:01:02Z"), List.of(envelope)));
+            .thenReturn(new PendingEventsResponse(gameId, 2L, false, Instant.parse("2026-05-06T18:01:02Z"), List.of(envelope)));
 
         mockMvc.perform(get("/internal/events/{gameId}", gameId)
                 .param("sinceSequence", "1")
                 .param("since", "2026-05-06T18:00:00Z"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.lastSequence").value(2))
-            .andExpect(jsonPath("$.replayFromMemory").value(true))
+            .andExpect(jsonPath("$.replayFromMemory").value(false))
             .andExpect(jsonPath("$.events[0].sequence").value(2))
             .andExpect(jsonPath("$.events[0].type").value("ATTACK_RESOLVED"));
     }
