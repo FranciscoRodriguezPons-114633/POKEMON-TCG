@@ -1,15 +1,13 @@
 package com.utn.pokemontcg.realtime.presentation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.utn.pokemontcg.game.domain.event.GameEvent;
+import com.utn.pokemontcg.game.infrastructure.repository.HttpRealtimeObserver;
 import com.utn.pokemontcg.realtime.dto.GameEventEnvelope;
-import com.utn.pokemontcg.realtime.dto.GameEventMessage;
 import com.utn.pokemontcg.realtime.dto.GameEventType;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.simp.stomp.StompFrameHandler;
 import org.springframework.messaging.simp.stomp.StompHeaders;
@@ -19,7 +17,6 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 import java.lang.reflect.Type;
-import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -29,29 +26,28 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class RealtimeWebSocketIntegrationTest {
+class GameServiceRealtimeFlowIntegrationTest {
 
     @LocalServerPort
     private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
-
     @Test
-    void shouldBroadcastPublishedEventsToStompSubscribers() throws Exception {
+    void shouldSendGameServiceObserverEventToRealtimeWebSocketSubscribers() throws Exception {
         UUID gameId = UUID.randomUUID();
         UUID playerId = UUID.randomUUID();
+        HttpRealtimeObserver gameServiceObserver = new HttpRealtimeObserver("http://localhost:" + port);
         ArrayBlockingQueue<GameEventEnvelope> received = new ArrayBlockingQueue<>(1);
+
+        gameServiceObserver.onEvent(GameEvent.of(
+            gameId,
+            "GAME_CREATED",
+            Map.of("playerOne", playerId.toString())
+        ));
+
         WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
         MappingJackson2MessageConverter messageConverter = new MappingJackson2MessageConverter();
         messageConverter.setObjectMapper(new ObjectMapper().findAndRegisterModules());
         stompClient.setMessageConverter(messageConverter);
-
-        restTemplate.postForEntity(
-            "/internal/events",
-            new GameEventMessage(gameId, "GAME_CREATED", Map.of("playerOne", playerId.toString()), Instant.parse("2026-05-06T17:59:00Z")),
-            GameEventEnvelope.class
-        );
 
         StompSession session = stompClient
             .connectAsync("ws://localhost:" + port + "/ws", new StompSessionHandlerAdapter() {})
@@ -73,20 +69,21 @@ class RealtimeWebSocketIntegrationTest {
         });
         Thread.sleep(300);
 
-        ResponseEntity<GameEventEnvelope> response = restTemplate.postForEntity(
-            "/internal/events",
-            new GameEventMessage(gameId, "ENERGY_ATTACHED", Map.of("attachedEnergy", 1), Instant.parse("2026-05-06T18:00:00Z")),
-            GameEventEnvelope.class
-        );
+        gameServiceObserver.onEvent(GameEvent.of(
+            gameId,
+            "ENERGY_ATTACHED",
+            Map.of("player", playerId.toString(), "attachedEnergy", 1)
+        ));
 
         GameEventEnvelope event = received.poll(3, TimeUnit.SECONDS);
 
-        assertEquals(200, response.getStatusCode().value());
         assertNotNull(event);
         assertEquals(gameId, event.gameId());
         assertEquals(GameEventType.ENERGY_ATTACHED, event.type());
-        assertEquals(1, event.schemaVersion());
+        assertEquals(1, event.payload().get("attachedEnergy"));
+
         session.disconnect();
         stompClient.stop();
     }
 }
+
